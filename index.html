@@ -278,8 +278,17 @@ var inventory = [
   {"code":"SK-005","category":"袜子","brand":"Happy Socks","name":"彩色棉袜(女)","size":"均码","color":"花色","location":"C架-3层","total_in":10,"sold":5,"current_stock":5,"safety":10,"suggested":15,"status":"不足"},
   {"code":"ST-001","category":"裤袜","brand":"Gunze","name":"发热保暖连裤袜","size":"M-L","color":"黑色","location":"D架-1层","total_in":8,"sold":2,"current_stock":6,"safety":5,"suggested":0,"status":"充足"},
   {"code":"ST-001","category":"裤袜","brand":"Gunze","name":"发热保暖连裤袜","size":"L-LL","color":"深灰","location":"","total_in":0,"sold":0,"current_stock":0,"safety":5,"suggested":10,"status":"缺货"},
-  {"code":"ST-003","category":"裤袜","brand":"Atsugi","name":"压力美腿连裤袜","size":"M-L","color":"肤色","location":"D架-2层","total_in":5,"sold":1,"current_stock":4,"safety":3,"suggested":0,"status":"充足"}
-];
+  {"code":"ST-003","category":"裤袜","brand":"Atsugi","name":"压力美腿连裤袜","size":"M-L","color":"肤色","location":"D架-2层","total_in":5,"sold":1,"current_stock":4,"safety":3,"suggested":0,"status":"充足"},
+  {"code":"BR-006","category":"内衣","brand":"华为","name":"906","size":"2XL","color":"白","location":"A架-3层","total_in":5,"sold":0,"current_stock":5,"safety":5,"suggested":0,"status":"充足"},
+  {"code":"BR-006","category":"内衣","brand":"华为","name":"906","size":"2XL","color":"肉","location":"","total_in":2,"sold":0,"current_stock":2,"safety":5,"suggested":3,"status":"不足"},
+  {"code":"BR-006","category":"内衣","brand":"华为","name":"906","size":"2XL","color":"粉","location":"","total_in":3,"sold":0,"current_stock":3,"safety":5,"suggested":2,"status":"不足"},
+  {"code":"BR-006","category":"内衣","brand":"华为","name":"906","size":"2XL","color":"黑","location":"","total_in":1,"sold":0,"current_stock":1,"safety":5,"suggested":4,"status":"不足"},
+  {"code":"UN-008","category":"内裤","brand":"beyond","name":"Sim","size":"M","color":"灰","location":"B架-4层","total_in":20,"sold":0,"current_stock":20,"safety":10,"suggested":0,"status":"充足"},
+  {"code":"UN-008","category":"内裤","brand":"beyond","name":"Sim","size":"M","color":"肉","location":"","total_in":5,"sold":0,"current_stock":5,"safety":10,"suggested":5,"status":"不足"},
+  {"code":"UN-008","category":"内裤","brand":"beyond","name":"Sim","size":"M","color":"黑","location":"","total_in":10,"sold":0,"current_stock":10,"safety":10,"suggested":0,"status":"充足"},
+  {"code":"UN-008","category":"内裤","brand":"beyond","name":"Sim","size":"XL","color":"肉","location":"","total_in":20,"sold":0,"current_stock":20,"safety":10,"suggested":0,"status":"充足"},
+  {"code":"UN-008","category":"内裤","brand":"beyond","name":"Sim","size":"XL","color":"灰","location":"","total_in":10,"sold":0,"current_stock":10,"safety":10,"suggested":0,"status":"充足"},
+]];
 
 // Split total stock into shelf + warehouse
 inventory.forEach(function(item) {
@@ -372,7 +381,9 @@ var suppliers = {
   "SK-003":"Puma 经销商","SK-004":"Puma 经销商",
   "SK-005":"Happy Socks SG",
   "ST-001":"Gunze 日本","ST-002":"Gunze 日本",
-  "ST-003":"Atsugi 代理"
+  "ST-003":"Atsugi 代理",
+  "BR-006":"华为 批发",
+  "UN-008":"beyond 代理"
 };
 
 var costs = {
@@ -380,7 +391,9 @@ var costs = {
   "UN-001":4.5,"UN-002":4.5,"UN-003":4.5,"UN-004":3.2,"UN-005":3.2,
   "UN-006":3.8,"UN-007":3.8,
   "SK-001":2.5,"SK-002":2.5,"SK-003":3,"SK-004":3,"SK-005":3.5,
-  "ST-001":8,"ST-002":8,"ST-003":10
+  "ST-001":8,"ST-002":8,"ST-003":10,
+  "BR-006":5,
+  "UN-008":6
 };
 
 var showAll = false;
