@@ -47,7 +47,7 @@ select:focus, input:focus { outline:none; border-color:#f9a8d4; box-shadow: 0 0 
 /* Table */
 .table-wrap { background:white; border-radius:20px; overflow:hidden; margin-bottom:20px; box-shadow: 0 4px 20px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.03); overflow-x:auto; -webkit-overflow-scrolling:touch; }
 .table-wrap::after { content:''; position:sticky; right:0; top:0; bottom:0; width:24px; background:linear-gradient(90deg,transparent,rgba(236,72,153,0.06)); pointer-events:none; display:none; }
-table { width:100%; border-collapse:collapse; min-width:900px; }
+table { width:100%; border-collapse:collapse; }
 th { background: linear-gradient(180deg, #fdf2f8, #fce7f3); padding:14px 10px; text-align:left; font-size:11px; color:#be185d; text-transform:uppercase; letter-spacing:0.8px; position:sticky; top:0; z-index:1; border-bottom: 2px solid #fbcfe8; white-space:nowrap; }
 td { padding:11px 10px; border-bottom:1px solid #fef3c7; font-size:13px; white-space:nowrap; }
 td.wrap { white-space:normal; }
@@ -430,22 +430,19 @@ function updateSummary() {
   }
   panel.classList.add('active');
   
-  var html = '<tr><th>商品编号</th><th>款式</th><th>尺码</th><th>颜色</th><th>数量</th><th>成本单价</th><th>金额</th><th>供应商</th></tr>';
-  var total = 0;
+  var html = '<tr><th>商品编号</th><th>款式</th><th>尺码</th><th>颜色</th><th>数量</th><th>供应商</th></tr>';
+  var totalItems = 0;
   selected.forEach(function(idx) {
     var item = inventory[idx];
     var qty = selections[idx];
-    var cost = costs[item.code] || 0;
-    var amt = qty * cost;
-    total += amt;
+    totalItems += qty;
     html += '<tr>';
     html += '<td>'+item.code+'</td><td>'+item.name+'</td><td>'+item.size+'</td><td>'+item.color+'</td>';
-    html += '<td>'+qty+'</td><td>$'+cost.toFixed(2)+'</td><td>$'+amt.toFixed(2)+'</td>';
-    html += '<td>'+ (suppliers[item.code]||'-') +'</td>';
+    html += '<td>'+qty+'</td><td>'+ (suppliers[item.code]||'-') +'</td>';
     html += '</tr>';
   });
   tbody.innerHTML = html;
-  totalEl.innerHTML = '💰 补货总成本: <span style="font-size:22px;">SGD $'+total.toFixed(2)+'</span> （'+selected.length+' 项）';
+  totalEl.innerHTML = '📦 补货总件数: <span style="font-size:22px;">'+totalItems+' 件</span> （'+selected.length+' 项）';
 }
 
 function toggleAllItems() {
@@ -750,11 +747,10 @@ document.addEventListener('keydown', function(e) {
 });
 
 // Re-render on resize for mobile/desktop column switching
-var lastWidth = window.innerWidth;
+var resizeTimer = null;
 window.addEventListener('resize', function() {
-  var w = window.innerWidth;
-  if ((lastWidth <= 768) !== (w <= 768)) { lastWidth = w; render(); }
-  else { lastWidth = w; }
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(function() { render(); }, 150);
 });
 
 init();
