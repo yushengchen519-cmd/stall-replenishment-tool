@@ -980,9 +980,19 @@ function downloadImage() {
       
       if (isMobile && navigator.share) {
         var file = new File([blob], '补货清单.png', {type:'image/png'});
-        navigator.share({files: [file]}).catch(function(){});
-        URL.revokeObjectURL(blobUrl);
-        showToast('已弹出分享 📤');
+        navigator.share({files: [file]}).then(function() {
+          showToast('分享成功 📤');
+        }).catch(function() {
+          // Fallback: download
+          var a2 = document.createElement('a');
+          a2.href = blobUrl;
+          a2.download = '补货清单_'+today.replace(/[年月]/g,'-').replace('日','')+'.png';
+          document.body.appendChild(a2);
+          a2.click();
+          document.body.removeChild(a2);
+          showToast('保存成功 💾');
+        });
+        setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 2000);
       } else {
         var a = document.createElement('a');
         a.href = blobUrl;
@@ -991,7 +1001,7 @@ function downloadImage() {
         a.click();
         document.body.removeChild(a);
         setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 1000);
-        showToast('图片已下载 💾');
+        showToast('保存成功 💾');
       }
     }, 'image/png');
   };
