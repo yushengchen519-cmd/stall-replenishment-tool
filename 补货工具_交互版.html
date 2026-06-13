@@ -285,12 +285,12 @@ var inventory = [
 inventory.forEach(function(item) {
   var total = item.current_stock;
   item.shelf = Math.min(item.safety, Math.max(0, total));
-  item.wh = Math.max(0, total - item.shelf);
+  item.wh = Math.max(0, total - item.shelf) + 3;
   item.shelf_safety = item.safety;
   item.wh_safety = Math.round(item.safety * 1.5);
 });
 
-// Global stock bump handled in init() first-visit guard below
+
 
 // ===== DATA PERSISTENCE (localStorage) =====
 var STORAGE_KEY = 'stall_inventory_v1';
@@ -348,6 +348,7 @@ function exportDataTSV() {
 function resetData() {
   if (!confirm('确定要重置所有库存数据吗？这将恢复为初始值，且不可撤销。')) return;
   localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(STORAGE_KEY + '_v2');
   inventory.forEach(function(item) {
     var total = item.current_stock;
     item.shelf = Math.min(item.safety, Math.max(0, total));
@@ -404,15 +405,7 @@ function init() {
   names.forEach(n => { var o=document.createElement('option'); o.value=n; o.textContent=n; selName.appendChild(o); });
   updateThead();
   var hasData = loadData();
-  // Apply +3 warehouse bump once (version flag prevents re-application)
-  if (!localStorage.getItem(STORAGE_KEY + '_v2')) {
-    inventory.forEach(function(item) { item.wh += 3; });
-    localStorage.setItem(STORAGE_KEY + '_v2', '1');
-    saveData();
-  } else if (!hasData) {
-    // First visit ever: data already includes +3 from initial split, just save
-    saveData();
-  }
+  if (!hasData) { saveData(); }
   render();
 }
 
