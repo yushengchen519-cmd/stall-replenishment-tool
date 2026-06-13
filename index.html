@@ -275,10 +275,18 @@ var inventory = [
   {"code":"ST-003","category":"裤袜","brand":"Atsugi","name":"压力美腿连裤袜","size":"M-L","color":"肤色","location":"D架-2层","total_in":5,"sold":1,"current_stock":4,"safety":3,"suggested":0,"status":"充足"}
 ];
 
-// Init warehouse fields (warehouse safety = daily safety * 1.5, stock starts at 0)
+// Split total stock into shelf + warehouse
+// shelf = displayed stock (max safety level on shelf)
+// warehouse = backup stock
+// When replenishing shelf: shelf↑ warehouse↓ (internal transfer, no cost)
+// When replenishing warehouse: warehouse↑ (supplier order, has cost)
 inventory.forEach(function(item) {
-  item.wh_stock = 0;
+  var total = item.current_stock;
+  item.shelf = Math.min(item.safety, Math.max(0, total));
+  item.wh = Math.max(0, total - item.shelf);
+  item.shelf_safety = item.safety;
   item.wh_safety = Math.round(item.safety * 1.5);
+  // Keep original as read-only reference
 });
 
 var suppliers = {
@@ -318,6 +326,7 @@ function init() {
   var names = [...new Set(inventory.map(i=>i.name))];
   var selName = document.getElementById('filterName');
   names.forEach(n => { var o=document.createElement('option'); o.value=n; o.textContent=n; selName.appendChild(o); });
+  updateThead();
   render();
 }
 
@@ -328,8 +337,8 @@ function getFilteredData() {
   return inventory.filter(function(item) {
     if (name !== 'all' && item.name !== name) return false;
     if (cat !== 'all' && item.category !== cat) return false;
-    var stock = viewMode === 'daily' ? item.current_stock : item.wh_stock;
-    var safe = viewMode === 'daily' ? item.safety : item.wh_safety;
+    var stock = viewMode === 'daily' ? item.shelf : item.wh;
+    var safe = viewMode === 'daily' ? item.shelf_safety : item.wh_safety;
     if (status === 'needs') return stock < safe;
     if (status === 'out') return stock <= 0;
     if (status === 'low') return stock > 0 && stock < safe;
@@ -341,73 +350,113 @@ function render() {
   var data = getFilteredData();
   var tbody = document.getElementById('skuBody');
   
-  // Group by category
   var groups = {};
   data.forEach(function(item, idx) {
     if (!groups[item.category]) groups[item.category] = [];
     groups[item.category].push({item:item, origIdx:inventory.indexOf(item)});
   });
 
-  var html = '';
   var isMobile = window.innerWidth <= 768;
-  var colspan = isMobile ? 7 : 16;
+  var isDaily = viewMode === 'daily';
+  
+  function isSelected(idx) {
+    var sels = isDaily ? selections : whSelections;
+    return sels[idx] !== undefined;
+  }
+  
+  // Column defs: always=true means always show. mob=true means HIDE on mobile. daily=true means HIDE in daily mode.
+  var colDefs = [
+    {h:'☑',        a:1, m:0, d:0, r:function(it,ix){return '<input type="checkbox" class="checkbox" '+(isSelected(ix)?'checked':'')+' onchange="toggleSelect('+ix+',this)">';}},
+    {h:'商品编号', a:1, m:0, d:0, r:function(it,ix){return it.code;}},
+    {h:'品类',     a:0, m:1, d:0, r:function(it,ix){return it.category;}},
+    {h:'品牌',     a:0, m:1, d:0, r:function(it,ix){return it.brand;}},
+    {h:'款式名称', a:1, m:0, d:0, r:function(it,ix){return it.name;}},
+    {h:'尺码',     a:1, m:0, d:0, r:function(it,ix){return it.size;}},
+    {h:'颜色',     a:1, m:0, d:0, r:function(it,ix){return it.color;}},
+    {h:'存放位置', a:0, m:1, d:1, r:function(it,ix){return it.location;}},
+    {h:'当前库存', a:1, m:0, d:0, r:function(it,ix){
+      var s = isDaily ? it.shelf : it.wh;
+      var sf = isDaily ? it.shelf_safety : it.wh_safety;
+      return '<span style="font-weight:bold;color:'+(s<=0?'#ef4444':s<sf?'#f59e0b':'#10b981')+'">'+s+'</span>';
+    }},
+    {h:'安全库存', a:0, m:1, d:0, r:function(it,ix){return isDaily ? it.shelf_safety : it.wh_safety;}},
+    {h:'状态',     a:0, m:1, d:1, r:function(it,ix){
+      var s = isDaily ? it.shelf : it.wh;
+      var sf = isDaily ? it.shelf_safety : it.wh_safety;
+      var st = s <= 0 ? '缺货' : (s < sf ? '不足' : '充足');
+      return '<span class="badge badge-'+(st==='缺货'?'danger':st==='不足'?'warning':'success')+'">'+st+'</span>';
+    }},
+    {h:'建议补货', a:0, m:1, d:0, r:function(it,ix){
+      var s = isDaily ? it.shelf : it.wh;
+      var sf = isDaily ? it.shelf_safety : it.wh_safety;
+      var sug = Math.max(0, sf - s);
+      return sug > 0 ? '<span style="color:#f59e0b">'+sug+'</span>' : '-';
+    }},
+    {h:'本次补货', a:1, m:0, d:0, r:function(it,ix){
+      var sels = isDaily ? selections : whSelections;
+      var s = isDaily ? it.shelf : it.wh;
+      var sf = isDaily ? it.shelf_safety : it.wh_safety;
+      var sug = Math.max(0, sf - s);
+      var sel = sels[ix] !== undefined;
+      var qty = sel ? sels[ix] : 0;
+      return '<input type="number" class="qty-input" value="'+qty+'" min="0" '+(sel||(s<sf)?'':'disabled')+' onchange="updateQty('+ix+',this.value)" onclick="event.stopPropagation()">';
+    }},
+    {h:'供应商',   a:0, m:1, d:1, r:function(it,ix){return suppliers[it.code]||'-';}},
+    {h:'成本单价', a:0, m:1, d:1, r:function(it,ix){var c=costs[it.code]||0;return '$'+c.toFixed(2);}},
+    {h:'小计(SGD)',a:0, m:1, d:1, r:function(it,ix){
+      var sels = isDaily ? selections : whSelections;
+      var qty = sels[ix] || 0;
+      return '<span style="color:#10b981;font-weight:bold">$'+(qty*(costs[it.code]||0)).toFixed(2)+'</span>';
+    }}
+  ];
+  
+  // Filter visible
+  var vis = [];
+  for (var i = 0; i < colDefs.length; i++) {
+    if (colDefs[i].a) { vis.push(i); continue; }
+    if (isMobile && colDefs[i].m) continue;
+    if (isDaily && colDefs[i].d) continue;
+    vis.push(i);
+  }
+  var colspan = vis.length;
+
+  var html = '';
   var catOrder = ['内衣','内裤','袜子','裤袜'];
   catOrder.forEach(function(cat) {
     if (!groups[cat]) return;
     var items = groups[cat];
     html += '<tr class="group-header" onclick="toggleCategory(this,\''+cat+'\')"><td colspan="'+colspan+'">📂 '+cat+' ('+items.length+' SKU)</td></tr>';
     items.forEach(function(entry) {
-      var item = entry.item;
-      var idx = entry.origIdx;
-      var statusClass = item.status==='缺货'?'danger':item.status==='不足'?'warning':'success';
-      var stockV = viewMode === 'daily' ? item.current_stock : item.wh_stock;
-      var safeV = viewMode === 'daily' ? item.safety : item.wh_safety;
-      var sugV = viewMode === 'daily' ? item.suggested : Math.max(0, safeV - stockV);
-      var sels = viewMode === 'daily' ? selections : whSelections;
-      var needsReplenish = stockV < safeV;
-      var selected = sels[idx] !== undefined;
-      var qty = selected ? sels[idx] : (needsReplenish ? sugV : 0);
-      var cost = costs[item.code] || 0;
-      var subtotal = (qty * cost).toFixed(2);
-      html += '<tr class="sku-row cat-'+cat+' '+(selected?'selected':'')+'" data-idx="'+idx+'">';
-      html += '<td><input type="checkbox" class="checkbox" '+(selected?'checked':'')+' onchange="toggleSelect('+idx+',this)" '+(!needsReplenish&&!showAll?'':'')+'></td>';
-      html += '<td>'+item.code+'</td>';
-      html += '<td class="mob-hide">'+item.category+'</td>';
-      html += '<td class="mob-hide">'+item.brand+'</td>';
-      html += '<td>'+item.name+'</td>';
-      html += '<td>'+item.size+'</td>';
-      html += '<td>'+item.color+'</td>';
-      html += '<td class="mob-hide">'+item.location+'</td>';
-      var stockVal = viewMode === 'daily' ? item.current_stock : item.wh_stock;
-      var safeVal = viewMode === 'daily' ? item.safety : item.wh_safety;
-      var sugVal = viewMode === 'daily' ? item.suggested : Math.max(0, safeVal - stockVal);
-      html += '<td style="font-weight:bold;color:'+(stockVal<=0?'#ef4444':stockVal<safeVal?'#f59e0b':'#10b981')+'">'+stockVal+'</td>';
-      html += '<td class="mob-hide">'+safeVal+'</td>';
-      var modeStatus = stockVal <= 0 ? '缺货' : (stockVal < safeVal ? '不足' : '充足');
-      var modeStatusClass = modeStatus === '缺货' ? 'danger' : (modeStatus === '不足' ? 'warning' : 'success');
-      html += '<td class="mob-hide"><span class="badge badge-'+modeStatusClass+'">'+modeStatus+'</span></td>';
-      html += '<td class="mob-hide" style="color:#f59e0b">'+(sugVal > 0 ? sugVal : '-')+'</td>';
-      html += '<td><input type="number" class="qty-input" value="'+qty+'" min="0" '+(selected?'':'disabled')+' onchange="updateQty('+idx+',this.value)" onclick="event.stopPropagation()"></td>';
-      html += '<td class="mob-hide">'+ (suppliers[item.code] || '-') +'</td>';
-      html += '<td class="mob-hide">$'+cost.toFixed(2)+'</td>';
-      html += '<td class="mob-hide" style="color:#10b981;font-weight:bold">$'+subtotal+'</td>';
+      var it = entry.item, ix = entry.origIdx;
+      html += '<tr class="sku-row cat-'+cat+' '+(isSelected(ix)?'selected':'')+'" data-idx="'+ix+'">';
+      for (var v = 0; v < vis.length; v++) {
+        html += '<td>'+colDefs[vis[v]].r(it, ix)+'</td>';
+      }
       html += '</tr>';
     });
   });
-  
+
   tbody.innerHTML = html;
   updateStats();
   updateSummary();
-}
-
-function toggleSelect(idx, cb) {
+}function toggleSelect(idx, cb) {
   var item = inventory[idx];
-  var sels = viewMode === 'daily' ? selections : whSelections;
-  var stock = viewMode === 'daily' ? item.current_stock : item.wh_stock;
-  var safe = viewMode === 'daily' ? item.safety : item.wh_safety;
-  var sug = viewMode === 'daily' ? item.suggested : Math.max(0, safe - stock);
+  var isDaily = viewMode === 'daily';
+  var sels = isDaily ? selections : whSelections;
+  var stock = isDaily ? item.shelf : item.wh;
+  var safe = isDaily ? item.shelf_safety : item.wh_safety;
+  var sug = Math.max(0, safe - stock);
   if (cb.checked) {
-    sels[idx] = sug > 0 ? sug : (safe - Math.max(0, stock));
+    // Daily: can't take more than warehouse has
+    var maxQty = isDaily ? item.wh : 9999;
+    var defQty = sug > 0 ? sug : (safe - Math.max(0, stock));
+    sels[idx] = Math.min(defQty, Math.max(0, maxQty));
+    if (isDaily && maxQty <= 0) {
+      showToast('仓库库存不足，请先补仓库！', true);
+      delete sels[idx];
+      render();
+      return;
+    }
   } else {
     delete sels[idx];
   }
@@ -416,7 +465,14 @@ function toggleSelect(idx, cb) {
 
 function updateQty(idx, val) {
   var qty = parseInt(val) || 0;
-  var sels = viewMode === 'daily' ? selections : whSelections;
+  var isDaily = viewMode === 'daily';
+  var sels = isDaily ? selections : whSelections;
+  var item = inventory[idx];
+  // Daily: limit to warehouse stock
+  if (isDaily && qty > item.wh) {
+    qty = item.wh;
+    showToast('最多补 '+item.wh+' 件（仓库余量）', true);
+  }
   if (qty <= 0) {
     delete sels[idx];
   } else {
@@ -436,24 +492,25 @@ function updateQty(idx, val) {
 function updateStats() {
   var data = getFilteredData();
   var all = inventory;
+  var isDaily = viewMode === 'daily';
   var outOfStock = all.filter(function(i) {
-    var s = viewMode === 'daily' ? i.current_stock : i.wh_stock;
-    var sf = viewMode === 'daily' ? i.safety : i.wh_safety;
+    var s = isDaily ? i.shelf : i.wh;
+    var sf = isDaily ? i.shelf_safety : i.wh_safety;
     return s <= 0;
   }).length;
   var lowStock = all.filter(function(i) {
-    var s = viewMode === 'daily' ? i.current_stock : i.wh_stock;
-    var sf = viewMode === 'daily' ? i.safety : i.wh_safety;
+    var s = isDaily ? i.shelf : i.wh;
+    var sf = isDaily ? i.shelf_safety : i.wh_safety;
     return s > 0 && s < sf;
   }).length;
   var adequate = all.filter(function(i) {
-    var s = viewMode === 'daily' ? i.current_stock : i.wh_stock;
-    var sf = viewMode === 'daily' ? i.safety : i.wh_safety;
+    var s = isDaily ? i.shelf : i.wh;
+    var sf = isDaily ? i.shelf_safety : i.wh_safety;
     return s >= sf;
   }).length;
   var needReplenish = all.filter(function(i) {
-    var s = viewMode === 'daily' ? i.current_stock : i.wh_stock;
-    var sf = viewMode === 'daily' ? i.safety : i.wh_safety;
+    var s = isDaily ? i.shelf : i.wh;
+    var sf = isDaily ? i.shelf_safety : i.wh_safety;
     return s < sf;
   }).length;
   
@@ -480,8 +537,13 @@ function updateSummary() {
     return;
   }
   panel.classList.add('active');
+  var modeLabel = viewMode === 'daily' ? '📋 本次补货清单（货架 ← 仓库）' : '📋 本次进货清单（仓库 ← 供应商）';
+  document.querySelector('#summaryPanel h3').textContent = modeLabel;
   
-  var html = '<tr><th>商品编号</th><th>款式</th><th>尺码</th><th>颜色</th><th>数量</th></tr>';
+  var isDaily = viewMode === 'daily';
+  var html = isDaily
+    ? '<tr><th>商品编号</th><th>款式</th><th>尺码</th><th>颜色</th><th>数量</th><th>来源</th></tr>'
+    : '<tr><th>商品编号</th><th>款式</th><th>尺码</th><th>颜色</th><th>数量</th><th>供应商</th></tr>';
   var totalItems = 0;
   selected.forEach(function(idx) {
     var item = inventory[idx];
@@ -490,10 +552,12 @@ function updateSummary() {
     html += '<tr>';
     html += '<td>'+item.code+'</td><td>'+item.name+'</td><td>'+item.size+'</td><td>'+item.color+'</td>';
     html += '<td>'+qty+'</td>';
+    html += '<td>'+(isDaily ? '📦 仓库调拨' : (suppliers[item.code]||'-'))+'</td>';
     html += '</tr>';
   });
   tbody.innerHTML = html;
-  totalEl.innerHTML = '📦 补货总件数: <span style="font-size:22px;">'+totalItems+' 件</span> （'+selected.length+' 项）';
+  var label = isDaily ? '📦 货架补货（从仓库调拨）' : '🏭 仓库进货（供应商采购）';
+  totalEl.innerHTML = label + ' — 总件数: <span style="font-size:22px;">'+totalItems+' 件</span> （'+selected.length+' 项）';
 }
 
 function toggleAllItems() {
@@ -504,14 +568,16 @@ function toggleAllItems() {
 
 function selectAllNeeding() {
   var data = getFilteredData();
-  var sels = viewMode === 'daily' ? selections : whSelections;
+  var isDaily = viewMode === 'daily';
+  var sels = isDaily ? selections : whSelections;
   data.forEach(function(item) {
     var idx = inventory.indexOf(item);
-    var stock = viewMode === 'daily' ? item.current_stock : item.wh_stock;
-    var safe = viewMode === 'daily' ? item.safety : item.wh_safety;
-    var sug = viewMode === 'daily' ? item.suggested : Math.max(0, safe - stock);
+    var stock = isDaily ? item.shelf : item.wh;
+    var safe = isDaily ? item.shelf_safety : item.wh_safety;
+    var sug = Math.max(0, safe - stock);
     if (stock < safe) {
-      sels[idx] = sug > 0 ? sug : (safe - Math.max(0, stock));
+      var maxQty = isDaily ? item.wh : 9999;
+      sels[idx] = Math.min(sug > 0 ? sug : (safe - Math.max(0, stock)), maxQty);
     }
   });
   render();
@@ -524,14 +590,32 @@ function clearAll() {
 }
 
 function generateList() {
-  var selsActive = viewMode === 'daily' ? selections : whSelections;
+  var isDaily = viewMode === 'daily';
+  var selsActive = isDaily ? selections : whSelections;
   var selected = Object.keys(selsActive).map(Number);
   if (selected.length === 0) {
     showToast('请先勾选需要补货的SKU 🌸', true);
     return;
   }
   
-  // Group by supplier
+  // APPLY replenishment to data model
+  selected.forEach(function(idx) {
+    var item = inventory[idx];
+    var qty = selsActive[idx];
+    if (isDaily) {
+      // Shelf replenish: take from warehouse
+      item.shelf += qty;
+      item.wh = Math.max(0, item.wh - qty);
+    } else {
+      // Warehouse replenish: order from supplier
+      item.wh += qty;
+    }
+  });
+  
+  // Clear selections after applying
+  if (isDaily) selections = {}; else whSelections = {};
+  
+  // Group by supplier (only warehouse mode needs suppliers)
   var bySupplier = {};
   selected.forEach(function(idx) {
     var item = inventory[idx];
@@ -626,7 +710,8 @@ function generateList() {
   
   // Also update in-page summary
   updateSummary();
-  showToast('补货清单已生成 → 请选择「另存为PDF」保存 🖨️');
+  var modeLabel = isDaily ? '货架补货（从仓库调拨）' : '仓库进货（供应商采购）';
+  showToast(modeLabel + ' ✅ 库存已更新');
 }
 
 function printList() {
@@ -637,7 +722,10 @@ function copyAsText() {
   var selsActive = viewMode === 'daily' ? selections : whSelections;
   var selected = Object.keys(selsActive).map(Number);
   if (selected.length === 0) return;
-  var lines = ['日期\t商品编号\t款式名称\t尺码\t颜色\t补货数量\t成本单价\t金额\t供应商'];
+  var isDaily = viewMode === 'daily';
+  var lines = isDaily
+    ? ['日期\t商品编号\t款式名称\t尺码\t颜色\t补货数量\t来源']
+    : ['日期\t商品编号\t款式名称\t尺码\t颜色\t补货数量\t供应商'];
   var total = 0;
   selected.forEach(function(idx) {
     var item = inventory[idx];
@@ -647,7 +735,7 @@ function copyAsText() {
     total += amt;
     lines.push(['', item.code, item.name, item.size, item.color, qty, cost.toFixed(2), amt.toFixed(2), suppliers[item.code]||''].join('\t'));
   });
-  lines.push(['', '', '', '', ''].join('\t'));
+  lines.push(isDaily ? ['', '', '', '', '', ''].join('\t') : ['', '', '', '', '', ''].join('\t'));
   navigator.clipboard.writeText(lines.join('\n')).then(function() {
     showToast('已复制到剪贴板 📋');
   }).catch(function() {
@@ -656,17 +744,28 @@ function copyAsText() {
 }
 
 function downloadImage() {
-  var selsActive = viewMode === 'daily' ? selections : whSelections;
+  var isDaily = viewMode === 'daily';
+  var selsActive = isDaily ? selections : whSelections;
   var selected = Object.keys(selsActive).map(Number);
   if (selected.length === 0) { showToast('请先勾选需要补货的SKU', true); return; }
   
   var today = new Date().toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric'});
-  var W = 520, rowH = 32, headerH = 36;
-  // 5 columns: 商品编号, 款式名称, 尺码, 颜色, 数量
-  var colX = [12, 100, 300, 360, 420];
-  var colW = [88, 200, 60, 60, 80];
-  var colNames = ['商品编号', '款式名称', '尺码', '颜色', '数量'];
-  var colAlign = ['left','left','center','center','center'];
+  var W = isDaily ? 440 : 520, rowH = 32, headerH = 36;
+  var colX, colW, colNames, colAlign, nCols;
+  if (isDaily) {
+    // Daily: 4 columns (no 供应商)
+    nCols = 4;
+    colX = [12, 100, 300, 360];
+    colW = [88, 200, 60, 60];
+    colNames = ['商品编号', '款式名称', '尺码', '颜色'];
+    colAlign = ['left','left','center','center'];
+  } else {
+    nCols = 5;
+    colX = [12, 100, 300, 360, 420];
+    colW = [88, 200, 60, 60, 80];
+    colNames = ['商品编号', '款式名称', '尺码', '颜色', '供应商'];
+    colAlign = ['left','left','center','center','left'];
+  }
   
   var rows = [];
   var totalItems = 0;
@@ -674,7 +773,8 @@ function downloadImage() {
     var item = inventory[idx];
     var qty = selsActive[idx];
     totalItems += qty;
-    rows.push([item.code, item.name, item.size, item.color, String(qty)]);
+    var rowData = isDaily ? [item.code, item.name, item.size, item.color] : [item.code, item.name, item.size, item.color, suppliers[item.code]||'-'];
+    rows.push(rowData);
   });
   
   var titleY = 50, tableY = 90;
@@ -703,7 +803,7 @@ function downloadImage() {
   svg += svgTag('rect', {x:String(12), y:String(tableY), width:String(W-24), height:String(headerH), rx:'8', fill:'#fce7f3'});
   svg += svgTag('rect', {x:String(12), y:String(tableY+headerH/2), width:String(W-24), height:String(headerH/2), fill:'#fce7f3'});
   
-  for (var c = 0; c < 5; c++) {
+  for (var c = 0; c < nCols; c++) {
     var ax = colAlign[c] === 'center' ? 'middle' : 'start';
     var tx = colAlign[c] === 'center' ? colX[c]+colW[c]/2 : colX[c]+10;
     svg += svgTag('text', {x:String(tx), y:String(tableY+22), 'text-anchor':ax, 'font-size':'11', 'font-weight':'bold', fill:'#be185d'}, colNames[c]);
@@ -717,10 +817,10 @@ function downloadImage() {
     }
     svg += svgTag('line', {x1:String(16), y1:String(ry+rowH), x2:String(W-16), y2:String(ry+rowH), stroke:'#fef3c7', 'stroke-width':'0.5'});
     
-    for (var c = 0; c < 5; c++) {
+    for (var c = 0; c < nCols; c++) {
       var ax = colAlign[c] === 'center' ? 'middle' : 'start';
       var tx = colAlign[c] === 'center' ? colX[c]+colW[c]/2 : colX[c]+8;
-      var fw = c === 4 ? 'bold' : 'normal';
+      var fw = (c === (nCols-1)) ? 'bold' : 'normal';
       svg += svgTag('text', {x:String(tx), y:String(ry+21), 'text-anchor':ax, 'font-size':'12', 'font-weight':fw, fill:'#444'}, rows[r][c]);
     }
   }
@@ -802,7 +902,45 @@ function switchMode(mode) {
   viewMode = mode;
   document.getElementById('btnDaily').className = mode === 'daily' ? 'mode-btn active' : 'mode-btn';
   document.getElementById('btnWarehouse').className = mode === 'warehouse' ? 'mode-btn active' : 'mode-btn';
+  // Clear selections when switching modes
+  updateThead();
   render();
+}
+
+function updateThead() {
+  var isDaily = viewMode === 'daily';
+  var isMobile = window.innerWidth <= 768;
+  // Build header based on same column defs as render
+  var cols = [
+    {h:'☑',        a:1, m:0, d:0},
+    {h:'商品编号', a:1, m:0, d:0},
+    {h:'品类',     a:0, m:1, d:0},
+    {h:'品牌',     a:0, m:1, d:0},
+    {h:'款式名称', a:1, m:0, d:0},
+    {h:'尺码',     a:1, m:0, d:0},
+    {h:'颜色',     a:1, m:0, d:0},
+    {h:'存放位置', a:0, m:1, d:1},
+    {h:'当前库存', a:1, m:0, d:0},
+    {h:'安全库存', a:0, m:1, d:0},
+    {h:'状态',     a:0, m:1, d:1},
+    {h:'建议补货', a:0, m:1, d:0},
+    {h:'本次补货', a:1, m:0, d:0},
+    {h:'供应商',   a:0, m:1, d:1},
+    {h:'成本单价', a:0, m:1, d:1},
+    {h:'小计(SGD)',a:0, m:1, d:1}
+  ];
+  var vis = [];
+  for (var i = 0; i < cols.length; i++) {
+    if (cols[i].a) { vis.push(cols[i]); continue; }
+    if (isMobile && cols[i].m) continue;
+    if (isDaily && cols[i].d) continue;
+    vis.push(cols[i]);
+  }
+  var h = '';
+  for (var i = 0; i < vis.length; i++) {
+    h += '<th'+(i===0?' style="width:40px;"':'')+'>'+vis[i].h+'</th>';
+  }
+  document.querySelector('#skuTable thead tr').innerHTML = h;
 }
 
 // Keyboard shortcuts
@@ -816,7 +954,7 @@ document.addEventListener('keydown', function(e) {
 var resizeTimer = null;
 window.addEventListener('resize', function() {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(function() { render(); }, 150);
+  resizeTimer = setTimeout(function() { updateThead(); render(); }, 150);
 });
 
 init();
