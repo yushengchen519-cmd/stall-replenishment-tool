@@ -573,6 +573,11 @@ function updateQty(idx, val, inputEl) {
     if (inputEl) inputEl.value = qty;
     showToast('最多补 '+item.wh+' 件（仓库余量）', true);
   }
+  // Auto-check/uncheck checkbox
+  if (inputEl) {
+    var cb = inputEl.closest('tr').querySelector('.checkbox');
+    if (cb) cb.checked = qty > 0;
+  }
   if (qty <= 0) {
     delete sels[idx];
   } else {
