@@ -352,7 +352,7 @@ function resetData() {
   inventory.forEach(function(item) {
     var total = item.current_stock;
     item.shelf = Math.min(item.safety, Math.max(0, total));
-    item.wh = Math.max(0, total - item.shelf);
+    item.wh = Math.max(0, total - item.shelf) + 3;
     item.shelf_safety = item.safety;
     item.wh_safety = Math.round(item.safety * 1.5);
   });
