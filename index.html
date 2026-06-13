@@ -975,21 +975,16 @@ function downloadImage() {
     URL.revokeObjectURL(url);
     
     canvas.toBlob(function(blob) {
-      var isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
       var blobUrl = URL.createObjectURL(blob);
-      
-      if (isMobile && navigator.share) {
-        var file = new File([blob], '补货清单_'+today.replace(/[年月]/g,'-').replace('日','')+'.png', {type:'image/png'});
-        navigator.share({files: [file], title: '补货清单'}).then(function() {
-          showToast('已分享 📱');
-        }).catch(function() {
-          triggerDownload(blobUrl);
-        });
-      } else {
-        // Desktop: force download via iframe (bypasses popup blocker)
-        triggerDownload(blobUrl);
-        showToast('图片已下载 💾');
-      }
+      // Direct download — works on both desktop and mobile
+      var a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = '补货清单_'+today.replace(/[年月]/g,'-').replace('日','')+'.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 1000);
+      showToast('图片已下载 💾');
     }, 'image/png');
   };
   
