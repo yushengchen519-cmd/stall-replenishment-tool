@@ -92,6 +92,11 @@ tr.group-header td:hover { background: linear-gradient(90deg, #fbcfe8, #fde68a) 
   .badge-danger, .badge-warning, .badge-success { color:black; background:none; font-weight:bold; }
 }
 
+/* Mode toggle buttons */
+.mode-btn { padding:6px 16px; border:none; border-radius:22px; cursor:pointer; font-size:13px; font-weight:600; background:transparent; color:#999; transition:all 0.2s; white-space:nowrap; }
+.mode-btn.active { background:linear-gradient(135deg,#ec4899,#f43f5e); color:white; box-shadow:0 2px 8px rgba(236,72,153,0.2); }
+.mode-btn:hover:not(.active) { color:#ec4899; background:#fdf2f8; }
+
 @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
 .empty-state { text-align:center; padding:40px; color:#999; }
 .empty-state .icon { font-size:48px; margin-bottom:12px; }
@@ -197,6 +202,10 @@ tr.group-header td:hover { background: linear-gradient(90deg, #fbcfe8, #fde68a) 
       <option value="out">仅缺货</option>
       <option value="low">仅不足</option>
     </select>
+    <span style="margin-left:12px;display:flex;align-items:center;gap:8px;background:white;border-radius:25px;padding:3px;border:2px solid #fce7f3;">
+      <button id="btnDaily" class="mode-btn active" onclick="switchMode('daily')">🏪 日常余量</button>
+      <button id="btnWarehouse" class="mode-btn" onclick="switchMode('warehouse')">🏭 仓库库存</button>
+    </span>
     <span style="color:#888;font-size:13px;margin-left:auto;" id="selectedCount"></span>
   </div>
 
@@ -266,6 +275,12 @@ var inventory = [
   {"code":"ST-003","category":"裤袜","brand":"Atsugi","name":"压力美腿连裤袜","size":"M-L","color":"肤色","location":"D架-2层","total_in":5,"sold":1,"current_stock":4,"safety":3,"suggested":0,"status":"充足"}
 ];
 
+// Init warehouse fields (warehouse safety = daily safety * 1.5, stock starts at 0)
+inventory.forEach(function(item) {
+  item.wh_stock = 0;
+  item.wh_safety = Math.round(item.safety * 1.5);
+});
+
 var suppliers = {
   "BR-001":"Triumph SG","BR-002":"Triumph SG","BR-003":"Triumph SG",
   "BR-004":"Wacoal 代理","BR-005":"Wacoal 代理",
@@ -288,7 +303,9 @@ var costs = {
 };
 
 var showAll = false;
-var selections = {}; // {index: qty}
+var viewMode = 'daily'; // 'daily' | 'warehouse'
+var selections = {};    // daily replenishment {index: qty}
+var whSelections = {};  // warehouse replenishment {index: qty}
 
 // ===== INIT =====
 function init() {
@@ -311,9 +328,11 @@ function getFilteredData() {
   return inventory.filter(function(item) {
     if (name !== 'all' && item.name !== name) return false;
     if (cat !== 'all' && item.category !== cat) return false;
-    if (status === 'needs') return item.current_stock < item.safety;
-    if (status === 'out') return item.status === '缺货';
-    if (status === 'low') return item.status === '不足';
+    var stock = viewMode === 'daily' ? item.current_stock : item.wh_stock;
+    var safe = viewMode === 'daily' ? item.safety : item.wh_safety;
+    if (status === 'needs') return stock < safe;
+    if (status === 'out') return stock <= 0;
+    if (status === 'low') return stock > 0 && stock < safe;
     return true;
   });
 }
@@ -341,9 +360,13 @@ function render() {
       var item = entry.item;
       var idx = entry.origIdx;
       var statusClass = item.status==='缺货'?'danger':item.status==='不足'?'warning':'success';
-      var needsReplenish = item.current_stock < item.safety;
-      var selected = selections[idx] !== undefined;
-      var qty = selected ? selections[idx] : (needsReplenish ? item.suggested : 0);
+      var stockV = viewMode === 'daily' ? item.current_stock : item.wh_stock;
+      var safeV = viewMode === 'daily' ? item.safety : item.wh_safety;
+      var sugV = viewMode === 'daily' ? item.suggested : Math.max(0, safeV - stockV);
+      var sels = viewMode === 'daily' ? selections : whSelections;
+      var needsReplenish = stockV < safeV;
+      var selected = sels[idx] !== undefined;
+      var qty = selected ? sels[idx] : (needsReplenish ? sugV : 0);
       var cost = costs[item.code] || 0;
       var subtotal = (qty * cost).toFixed(2);
       html += '<tr class="sku-row cat-'+cat+' '+(selected?'selected':'')+'" data-idx="'+idx+'">';
@@ -355,10 +378,15 @@ function render() {
       html += '<td>'+item.size+'</td>';
       html += '<td>'+item.color+'</td>';
       html += '<td class="mob-hide">'+item.location+'</td>';
-      html += '<td style="font-weight:bold;color:'+(item.current_stock<=0?'#ef4444':item.current_stock<item.safety?'#f59e0b':'#10b981')+'">'+item.current_stock+'</td>';
-      html += '<td class="mob-hide">'+item.safety+'</td>';
-      html += '<td class="mob-hide"><span class="badge badge-'+statusClass+'">'+item.status+'</span></td>';
-      html += '<td class="mob-hide" style="color:#f59e0b">'+(item.suggested > 0 ? item.suggested : '-')+'</td>';
+      var stockVal = viewMode === 'daily' ? item.current_stock : item.wh_stock;
+      var safeVal = viewMode === 'daily' ? item.safety : item.wh_safety;
+      var sugVal = viewMode === 'daily' ? item.suggested : Math.max(0, safeVal - stockVal);
+      html += '<td style="font-weight:bold;color:'+(stockVal<=0?'#ef4444':stockVal<safeVal?'#f59e0b':'#10b981')+'">'+stockVal+'</td>';
+      html += '<td class="mob-hide">'+safeVal+'</td>';
+      var modeStatus = stockVal <= 0 ? '缺货' : (stockVal < safeVal ? '不足' : '充足');
+      var modeStatusClass = modeStatus === '缺货' ? 'danger' : (modeStatus === '不足' ? 'warning' : 'success');
+      html += '<td class="mob-hide"><span class="badge badge-'+modeStatusClass+'">'+modeStatus+'</span></td>';
+      html += '<td class="mob-hide" style="color:#f59e0b">'+(sugVal > 0 ? sugVal : '-')+'</td>';
       html += '<td><input type="number" class="qty-input" value="'+qty+'" min="0" '+(selected?'':'disabled')+' onchange="updateQty('+idx+',this.value)" onclick="event.stopPropagation()"></td>';
       html += '<td class="mob-hide">'+ (suppliers[item.code] || '-') +'</td>';
       html += '<td class="mob-hide">$'+cost.toFixed(2)+'</td>';
@@ -373,21 +401,26 @@ function render() {
 }
 
 function toggleSelect(idx, cb) {
+  var item = inventory[idx];
+  var sels = viewMode === 'daily' ? selections : whSelections;
+  var stock = viewMode === 'daily' ? item.current_stock : item.wh_stock;
+  var safe = viewMode === 'daily' ? item.safety : item.wh_safety;
+  var sug = viewMode === 'daily' ? item.suggested : Math.max(0, safe - stock);
   if (cb.checked) {
-    var item = inventory[idx];
-    selections[idx] = item.suggested > 0 ? item.suggested : (item.safety - Math.max(0, item.current_stock));
+    sels[idx] = sug > 0 ? sug : (safe - Math.max(0, stock));
   } else {
-    delete selections[idx];
+    delete sels[idx];
   }
   render();
 }
 
 function updateQty(idx, val) {
   var qty = parseInt(val) || 0;
+  var sels = viewMode === 'daily' ? selections : whSelections;
   if (qty <= 0) {
-    delete selections[idx];
+    delete sels[idx];
   } else {
-    selections[idx] = qty;
+    sels[idx] = qty;
   }
   updateSummary();
   // Update subtotal cell
@@ -403,10 +436,26 @@ function updateQty(idx, val) {
 function updateStats() {
   var data = getFilteredData();
   var all = inventory;
-  var outOfStock = all.filter(i=>i.status==='缺货').length;
-  var lowStock = all.filter(i=>i.status==='不足').length;
-  var adequate = all.filter(i=>i.status==='充足').length;
-  var needReplenish = all.filter(i=>i.current_stock < i.safety).length;
+  var outOfStock = all.filter(function(i) {
+    var s = viewMode === 'daily' ? i.current_stock : i.wh_stock;
+    var sf = viewMode === 'daily' ? i.safety : i.wh_safety;
+    return s <= 0;
+  }).length;
+  var lowStock = all.filter(function(i) {
+    var s = viewMode === 'daily' ? i.current_stock : i.wh_stock;
+    var sf = viewMode === 'daily' ? i.safety : i.wh_safety;
+    return s > 0 && s < sf;
+  }).length;
+  var adequate = all.filter(function(i) {
+    var s = viewMode === 'daily' ? i.current_stock : i.wh_stock;
+    var sf = viewMode === 'daily' ? i.safety : i.wh_safety;
+    return s >= sf;
+  }).length;
+  var needReplenish = all.filter(function(i) {
+    var s = viewMode === 'daily' ? i.current_stock : i.wh_stock;
+    var sf = viewMode === 'daily' ? i.safety : i.wh_safety;
+    return s < sf;
+  }).length;
   
   document.getElementById('statsBar').innerHTML = 
     '<div class="stat-card danger"><div class="num">'+outOfStock+'</div><div class="label">缺货 SKU</div></div>'+
@@ -414,7 +463,8 @@ function updateStats() {
     '<div class="stat-card success"><div class="num">'+adequate+'</div><div class="label">库存充足</div></div>'+
     '<div class="stat-card info"><div class="num">'+needReplenish+'</div><div class="label">需补货合计</div></div>';
   
-  var selCount = Object.keys(selections).length;
+  var selsActive = viewMode === 'daily' ? selections : whSelections;
+  var selCount = Object.keys(selsActive).length;
   document.getElementById('selectedCount').textContent = '已选补货: '+selCount+' 项';
 }
 
@@ -423,22 +473,23 @@ function updateSummary() {
   var tbody = document.getElementById('summaryTable');
   var totalEl = document.getElementById('summaryTotal');
   
-  var selected = Object.keys(selections).map(Number);
+  var selsActive = viewMode === 'daily' ? selections : whSelections;
+  var selected = Object.keys(selsActive).map(Number);
   if (selected.length === 0) {
     panel.classList.remove('active');
     return;
   }
   panel.classList.add('active');
   
-  var html = '<tr><th>商品编号</th><th>款式</th><th>尺码</th><th>颜色</th><th>数量</th><th>供应商</th></tr>';
+  var html = '<tr><th>商品编号</th><th>款式</th><th>尺码</th><th>颜色</th><th>数量</th></tr>';
   var totalItems = 0;
   selected.forEach(function(idx) {
     var item = inventory[idx];
-    var qty = selections[idx];
+    var qty = selsActive[idx];
     totalItems += qty;
     html += '<tr>';
     html += '<td>'+item.code+'</td><td>'+item.name+'</td><td>'+item.size+'</td><td>'+item.color+'</td>';
-    html += '<td>'+qty+'</td><td>'+ (suppliers[item.code]||'-') +'</td>';
+    html += '<td>'+qty+'</td>';
     html += '</tr>';
   });
   tbody.innerHTML = html;
@@ -453,22 +504,28 @@ function toggleAllItems() {
 
 function selectAllNeeding() {
   var data = getFilteredData();
+  var sels = viewMode === 'daily' ? selections : whSelections;
   data.forEach(function(item) {
     var idx = inventory.indexOf(item);
-    if (item.current_stock < item.safety) {
-      selections[idx] = item.suggested > 0 ? item.suggested : (item.safety - Math.max(0, item.current_stock));
+    var stock = viewMode === 'daily' ? item.current_stock : item.wh_stock;
+    var safe = viewMode === 'daily' ? item.safety : item.wh_safety;
+    var sug = viewMode === 'daily' ? item.suggested : Math.max(0, safe - stock);
+    if (stock < safe) {
+      sels[idx] = sug > 0 ? sug : (safe - Math.max(0, stock));
     }
   });
   render();
 }
 
 function clearAll() {
-  selections = {};
+  if (viewMode === 'daily') selections = {};
+  else whSelections = {};
   render();
 }
 
 function generateList() {
-  var selected = Object.keys(selections).map(Number);
+  var selsActive = viewMode === 'daily' ? selections : whSelections;
+  var selected = Object.keys(selsActive).map(Number);
   if (selected.length === 0) {
     showToast('请先勾选需要补货的SKU 🌸', true);
     return;
@@ -480,7 +537,7 @@ function generateList() {
     var item = inventory[idx];
     var sup = suppliers[item.code] || '未指定供应商';
     if (!bySupplier[sup]) bySupplier[sup] = [];
-    bySupplier[sup].push({item: item, qty: selections[idx], cost: costs[item.code] || 0});
+    bySupplier[sup].push({item: item, qty: selsActive[idx], cost: costs[item.code] || 0});
   });
   
   var today = new Date().toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric'});
@@ -577,19 +634,20 @@ function printList() {
 }
 
 function copyAsText() {
-  var selected = Object.keys(selections).map(Number);
+  var selsActive = viewMode === 'daily' ? selections : whSelections;
+  var selected = Object.keys(selsActive).map(Number);
   if (selected.length === 0) return;
   var lines = ['日期\t商品编号\t款式名称\t尺码\t颜色\t补货数量\t成本单价\t金额\t供应商'];
   var total = 0;
   selected.forEach(function(idx) {
     var item = inventory[idx];
-    var qty = selections[idx];
+    var qty = selsActive[idx];
     var cost = costs[item.code] || 0;
     var amt = qty * cost;
     total += amt;
     lines.push(['', item.code, item.name, item.size, item.color, qty, cost.toFixed(2), amt.toFixed(2), suppliers[item.code]||''].join('\t'));
   });
-  lines.push(['', '', '', '', '', '', '', total.toFixed(2), ''].join('\t'));
+  lines.push(['', '', '', '', ''].join('\t'));
   navigator.clipboard.writeText(lines.join('\n')).then(function() {
     showToast('已复制到剪贴板 📋');
   }).catch(function() {
@@ -598,24 +656,25 @@ function copyAsText() {
 }
 
 function downloadImage() {
-  var selected = Object.keys(selections).map(Number);
+  var selsActive = viewMode === 'daily' ? selections : whSelections;
+  var selected = Object.keys(selsActive).map(Number);
   if (selected.length === 0) { showToast('请先勾选需要补货的SKU', true); return; }
   
   var today = new Date().toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric'});
-  var W = 660, rowH = 32, headerH = 36;
-  // 6 columns: 商品编号, 款式名称, 尺码, 颜色, 数量, 供应商
-  var colX = [16, 100, 280, 340, 400, 470];
-  var colW = [84, 180, 60, 60, 70, 170];
-  var colNames = ['商品编号', '款式名称', '尺码', '颜色', '数量', '供应商'];
-  var colAlign = ['left','left','center','center','center','left'];
+  var W = 520, rowH = 32, headerH = 36;
+  // 5 columns: 商品编号, 款式名称, 尺码, 颜色, 数量
+  var colX = [12, 100, 300, 360, 420];
+  var colW = [88, 200, 60, 60, 80];
+  var colNames = ['商品编号', '款式名称', '尺码', '颜色', '数量'];
+  var colAlign = ['left','left','center','center','center'];
   
   var rows = [];
   var totalItems = 0;
   selected.forEach(function(idx) {
     var item = inventory[idx];
-    var qty = selections[idx];
+    var qty = selsActive[idx];
     totalItems += qty;
-    rows.push([item.code, item.name, item.size, item.color, String(qty), suppliers[item.code]||'-']);
+    rows.push([item.code, item.name, item.size, item.color, String(qty)]);
   });
   
   var titleY = 50, tableY = 90;
@@ -644,7 +703,7 @@ function downloadImage() {
   svg += svgTag('rect', {x:String(12), y:String(tableY), width:String(W-24), height:String(headerH), rx:'8', fill:'#fce7f3'});
   svg += svgTag('rect', {x:String(12), y:String(tableY+headerH/2), width:String(W-24), height:String(headerH/2), fill:'#fce7f3'});
   
-  for (var c = 0; c < 6; c++) {
+  for (var c = 0; c < 5; c++) {
     var ax = colAlign[c] === 'center' ? 'middle' : 'start';
     var tx = colAlign[c] === 'center' ? colX[c]+colW[c]/2 : colX[c]+10;
     svg += svgTag('text', {x:String(tx), y:String(tableY+22), 'text-anchor':ax, 'font-size':'11', 'font-weight':'bold', fill:'#be185d'}, colNames[c]);
@@ -658,7 +717,7 @@ function downloadImage() {
     }
     svg += svgTag('line', {x1:String(16), y1:String(ry+rowH), x2:String(W-16), y2:String(ry+rowH), stroke:'#fef3c7', 'stroke-width':'0.5'});
     
-    for (var c = 0; c < 6; c++) {
+    for (var c = 0; c < 5; c++) {
       var ax = colAlign[c] === 'center' ? 'middle' : 'start';
       var tx = colAlign[c] === 'center' ? colX[c]+colW[c]/2 : colX[c]+8;
       var fw = c === 4 ? 'bold' : 'normal';
@@ -737,6 +796,13 @@ function showToast(msg, isError) {
   t.textContent = msg;
   t.className = 'toast '+(isError?'error':'')+' show';
   setTimeout(function(){ t.className = 'toast'; }, 2000);
+}
+
+function switchMode(mode) {
+  viewMode = mode;
+  document.getElementById('btnDaily').className = mode === 'daily' ? 'mode-btn active' : 'mode-btn';
+  document.getElementById('btnWarehouse').className = mode === 'warehouse' ? 'mode-btn active' : 'mode-btn';
+  render();
 }
 
 // Keyboard shortcuts
