@@ -106,7 +106,7 @@ tr.group-header td:hover { background: linear-gradient(90deg, #fbcfe8, #fde68a) 
       <button class="btn btn-outline btn-sm" onclick="toggleAllItems()">📋 切换全部SKU</button>
       <button class="btn btn-outline btn-sm" onclick="selectAllNeeding()">✅ 全选待补货</button>
       <button class="btn btn-outline btn-sm" onclick="clearAll()">🔄 清空选择</button>
-      <button class="btn btn-primary" onclick="generateList()">📝 生成补货清单</button>
+      <button class="btn btn-primary" onclick="generateList()">🖨️ 生成补货 PDF</button>
       <button class="btn btn-green" onclick="printList()">🖨️ 打印</button>
     </div>
   </div>
@@ -402,12 +402,106 @@ function clearAll() {
 function generateList() {
   var selected = Object.keys(selections).map(Number);
   if (selected.length === 0) {
-    showToast('请先勾选需要补货的SKU', true);
+    showToast('请先勾选需要补货的SKU 🌸', true);
     return;
   }
+  
+  // Group by supplier
+  var bySupplier = {};
+  selected.forEach(function(idx) {
+    var item = inventory[idx];
+    var sup = suppliers[item.code] || '未指定供应商';
+    if (!bySupplier[sup]) bySupplier[sup] = [];
+    bySupplier[sup].push({item: item, qty: selections[idx], cost: costs[item.code] || 0});
+  });
+  
+  var today = new Date().toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric'});
+  var totalItems = 0, totalCost = 0;
+  
+  // Build print document
+  var printHTML = '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>补货清单 - '+today+'</title>';
+  printHTML += '<style>';
+  printHTML += '*{margin:0;padding:0;box-sizing:border-box}';
+  printHTML += 'body{font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#333;padding:40px 50px;max-width:800px;margin:0 auto;background:#fff}';
+  printHTML += '.doc-header{text-align:center;margin-bottom:30px;padding-bottom:20px;border-bottom:3px double #ec4899}';
+  printHTML += '.doc-header h1{font-size:26px;color:#ec4899;margin-bottom:4px}';
+  printHTML += '.doc-header .sub{font-size:14px;color:#999}';
+  printHTML += '.doc-header .date{font-size:15px;color:#666;margin-top:8px;font-weight:600}';
+  printHTML += '.supplier-group{margin-bottom:24px}';
+  printHTML += '.supplier-group h2{font-size:16px;color:#be185d;background:#fdf2f8;padding:8px 14px;border-radius:8px;margin-bottom:10px}';
+  printHTML += 'table{width:100%;border-collapse:collapse;margin-bottom:8px}';
+  printHTML += 'th{background:#fce7f3;color:#9d174d;padding:8px 10px;font-size:11px;text-align:left;border-bottom:1px solid #fbcfe8}';
+  printHTML += 'td{padding:9px 10px;font-size:13px;border-bottom:1px solid #fef3c7}';
+  printHTML += 'tr:nth-child(even) td{background:#fefce8}';
+  printHTML += '.num{text-align:center;font-weight:700}';
+  printHTML += '.amt{text-align:right;font-weight:700;color:#10b981}';
+  printHTML += '.group-total{text-align:right;font-size:13px;color:#888;padding:4px 10px}';
+  printHTML += '.summary-box{background:#fdf2f8;border:2px solid #fbcfe8;border-radius:12px;padding:16px 20px;margin-top:24px}';
+  printHTML += '.summary-box .row{display:flex;justify-content:space-between;font-size:14px;padding:4px 0}';
+  printHTML += '.summary-box .total{font-size:20px;font-weight:800;color:#ec4899;margin-top:8px;padding-top:8px;border-top:1px dashed #fbcfe8}';
+  printHTML += '.footer{text-align:center;color:#bbb;font-size:11px;margin-top:30px}';
+  printHTML += '@media print{body{padding:20px 30px}}';
+  printHTML += '</style></head><body>';
+  
+  // Header
+  printHTML += '<div class="doc-header">';
+  printHTML += '<h1>🛍️ 服装档口 · 补货清单</h1>';
+  printHTML += '<div class="sub">Stock Replenishment Order</div>';
+  printHTML += '<div class="date">📅 '+today+'</div>';
+  printHTML += '</div>';
+  
+  // Items grouped by supplier
+  var supOrder = Object.keys(bySupplier).sort();
+  supOrder.forEach(function(sup) {
+    var items = bySupplier[sup];
+    var groupTotal = 0;
+    
+    printHTML += '<div class="supplier-group">';
+    printHTML += '<h2>📦 '+sup+'</h2>';
+    printHTML += '<table><thead><tr>';
+    printHTML += '<th>商品编号</th><th>款式名称</th><th>尺码</th><th>颜色</th><th class="num">数量</th><th class="num">单价</th><th class="amt">金额</th>';
+    printHTML += '</tr></thead><tbody>';
+    
+    items.forEach(function(entry) {
+      var amt = entry.qty * entry.cost;
+      groupTotal += amt;
+      totalItems += entry.qty;
+      printHTML += '<tr>';
+      printHTML += '<td>'+entry.item.code+'</td>';
+      printHTML += '<td>'+entry.item.name+'</td>';
+      printHTML += '<td class="num">'+entry.item.size+'</td>';
+      printHTML += '<td class="num">'+entry.item.color+'</td>';
+      printHTML += '<td class="num">'+entry.qty+'</td>';
+      printHTML += '<td class="num">$'+entry.cost.toFixed(2)+'</td>';
+      printHTML += '<td class="amt">$'+amt.toFixed(2)+'</td>';
+      printHTML += '</tr>';
+    });
+    
+    printHTML += '</tbody></table>';
+    printHTML += '<div class="group-total">小计: SGD $'+groupTotal.toFixed(2)+'</div>';
+    printHTML += '</div>';
+    
+    totalCost += groupTotal;
+  });
+  
+  // Summary box
+  printHTML += '<div class="summary-box">';
+  printHTML += '<div class="row"><span>补货 SKU 数</span><span>'+selected.length+' 项</span></div>';
+  printHTML += '<div class="row"><span>补货总件数</span><span>'+totalItems+' 件</span></div>';
+  printHTML += '<div class="row total"><span>💰 补货总成本</span><span>SGD $'+totalCost.toFixed(2)+'</span></div>';
+  printHTML += '</div>';
+  
+  printHTML += '<div class="footer">服装档口管理模板 · 补货工具生成</div>';
+  printHTML += '<script>window.onload=function(){window.print();}<'+'/script>';
+  printHTML += '</body></html>';
+  
+  var w = window.open('', '_blank', 'width=900,height=700');
+  w.document.write(printHTML);
+  w.document.close();
+  
+  // Also update in-page summary
   updateSummary();
-  document.getElementById('summaryPanel').scrollIntoView({behavior:'smooth'});
-  showToast('已生成补货清单 ✅');
+  showToast('补货清单已生成 → 请选择「另存为PDF」保存 🖨️');
 }
 
 function printList() {
