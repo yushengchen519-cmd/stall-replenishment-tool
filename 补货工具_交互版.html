@@ -214,13 +214,13 @@ tr.group-header td:hover { background: linear-gradient(90deg, #fbcfe8, #fde68a) 
           <th>颜色</th>
           <th class="mob-hide">存放位置</th>
           <th>当前库存</th>
-          <th>安全库存</th>
-          <th>状态</th>
-          <th>建议补货</th>
+          <th class="mob-hide">安全库存</th>
+          <th class="mob-hide">状态</th>
+          <th class="mob-hide">建议补货</th>
           <th>本次补货</th>
           <th class="mob-hide">供应商</th>
           <th class="mob-hide">成本单价</th>
-          <th>小计(SGD)</th>
+          <th class="mob-hide">小计(SGD)</th>
         </tr>
       </thead>
       <tbody id="skuBody"></tbody>
@@ -331,7 +331,7 @@ function render() {
 
   var html = '';
   var isMobile = window.innerWidth <= 768;
-  var colspan = isMobile ? 11 : 16;
+  var colspan = isMobile ? 7 : 16;
   var catOrder = ['内衣','内裤','袜子','裤袜'];
   catOrder.forEach(function(cat) {
     if (!groups[cat]) return;
@@ -356,13 +356,13 @@ function render() {
       html += '<td>'+item.color+'</td>';
       html += '<td class="mob-hide">'+item.location+'</td>';
       html += '<td style="font-weight:bold;color:'+(item.current_stock<=0?'#ef4444':item.current_stock<item.safety?'#f59e0b':'#10b981')+'">'+item.current_stock+'</td>';
-      html += '<td>'+item.safety+'</td>';
-      html += '<td><span class="badge badge-'+statusClass+'">'+item.status+'</span></td>';
-      html += '<td style="color:#f59e0b">'+(item.suggested > 0 ? item.suggested : '-')+'</td>';
+      html += '<td class="mob-hide">'+item.safety+'</td>';
+      html += '<td class="mob-hide"><span class="badge badge-'+statusClass+'">'+item.status+'</span></td>';
+      html += '<td class="mob-hide" style="color:#f59e0b">'+(item.suggested > 0 ? item.suggested : '-')+'</td>';
       html += '<td><input type="number" class="qty-input" value="'+qty+'" min="0" '+(selected?'':'disabled')+' onchange="updateQty('+idx+',this.value)" onclick="event.stopPropagation()"></td>';
       html += '<td class="mob-hide">'+ (suppliers[item.code] || '-') +'</td>';
       html += '<td class="mob-hide">$'+cost.toFixed(2)+'</td>';
-      html += '<td style="color:#10b981;font-weight:bold">$'+subtotal+'</td>';
+      html += '<td class="mob-hide" style="color:#10b981;font-weight:bold">$'+subtotal+'</td>';
       html += '</tr>';
     });
   });
@@ -605,30 +605,26 @@ function downloadImage() {
   if (selected.length === 0) { showToast('请先勾选需要补货的SKU', true); return; }
   
   var today = new Date().toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric'});
-  var W = 780, rowH = 32, headerH = 36, padX = 16, padY = 20;
-  var colX = [20, 100, 300, 360, 420, 490, 580, 680]; // column x positions
-  var colW = [80, 200, 60, 60, 70, 90, 100, 80];
-  var colNames = ['商品编号', '款式名称', '尺码', '颜色', '数量', '成本单价', '金额', '供应商'];
-  var colAlign = ['left','left','center','center','center','center','right','left'];
+  var W = 660, rowH = 32, headerH = 36;
+  // 6 columns: 商品编号, 款式名称, 尺码, 颜色, 数量, 供应商
+  var colX = [16, 100, 280, 340, 400, 470];
+  var colW = [84, 180, 60, 60, 70, 170];
+  var colNames = ['商品编号', '款式名称', '尺码', '颜色', '数量', '供应商'];
+  var colAlign = ['left','left','center','center','center','left'];
   
-  // Build row data
   var rows = [];
-  var totalAmt = 0;
+  var totalItems = 0;
   selected.forEach(function(idx) {
     var item = inventory[idx];
     var qty = selections[idx];
-    var cost = costs[item.code] || 0;
-    var amt = qty * cost;
-    totalAmt += amt;
-    rows.push([item.code, item.name, item.size, item.color, String(qty), '$'+cost.toFixed(2), '$'+amt.toFixed(2), suppliers[item.code]||'-']);
+    totalItems += qty;
+    rows.push([item.code, item.name, item.size, item.color, String(qty), suppliers[item.code]||'-']);
   });
   
-  var titleY = 55, tableY = 100;
+  var titleY = 50, tableY = 90;
   var tableH = headerH + rows.length * rowH;
-  var summaryY = tableY + tableH + 24;
-  var totalH = 120 + rows.length * rowH;
+  var svgH = tableY + tableH + 80;
   
-  // SVG namespace
   function svgTag(tag, attrs, content) {
     var s = '<'+tag;
     for (var k in attrs) s += ' '+k+'="'+attrs[k]+'"';
@@ -638,22 +634,22 @@ function downloadImage() {
   }
   
   var svg = '';
-  svg += '<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+(summaryY+totalH)+'" style="background:#fff;font-family:Microsoft YaHei,PingFang SC,sans-serif">';
+  svg += '<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+svgH+'" style="background:#fff;font-family:Microsoft YaHei,PingFang SC,sans-serif">';
   
   // Title
   svg += svgTag('text', {x:String(W/2), y:String(titleY), 'text-anchor':'middle', 'font-size':'22', 'font-weight':'bold', fill:'#ec4899'}, '📋 服装档口 · 补货清单');
   svg += svgTag('text', {x:String(W/2), y:String(titleY+22), 'text-anchor':'middle', 'font-size':'13', fill:'#999'}, '📅 '+today);
   
   // Table background
-  svg += svgTag('rect', {x:String(16), y:String(tableY), width:String(W-32), height:String(tableH), rx:'8', fill:'#fdf2f8'});
+  svg += svgTag('rect', {x:String(12), y:String(tableY), width:String(W-24), height:String(tableH), rx:'8', fill:'#fdf2f8'});
   
   // Header row
-  svg += svgTag('rect', {x:String(16), y:String(tableY), width:String(W-32), height:String(headerH), rx:'8', fill:'#fce7f3'});
-  svg += svgTag('rect', {x:String(16), y:String(tableY+headerH/2), width:String(W-32), height:String(headerH/2), fill:'#fce7f3'});
+  svg += svgTag('rect', {x:String(12), y:String(tableY), width:String(W-24), height:String(headerH), rx:'8', fill:'#fce7f3'});
+  svg += svgTag('rect', {x:String(12), y:String(tableY+headerH/2), width:String(W-24), height:String(headerH/2), fill:'#fce7f3'});
   
-  for (var c = 0; c < 8; c++) {
-    var ax = colAlign[c] === 'center' ? 'middle' : (colAlign[c] === 'right' ? 'end' : 'start');
-    var tx = colAlign[c] === 'center' ? colX[c]+colW[c]/2 : (colAlign[c] === 'right' ? colX[c]+colW[c]-10 : colX[c]+10);
+  for (var c = 0; c < 6; c++) {
+    var ax = colAlign[c] === 'center' ? 'middle' : 'start';
+    var tx = colAlign[c] === 'center' ? colX[c]+colW[c]/2 : colX[c]+10;
     svg += svgTag('text', {x:String(tx), y:String(tableY+22), 'text-anchor':ax, 'font-size':'11', 'font-weight':'bold', fill:'#be185d'}, colNames[c]);
   }
   
@@ -661,34 +657,30 @@ function downloadImage() {
   for (var r = 0; r < rows.length; r++) {
     var ry = tableY + headerH + r * rowH;
     if (r % 2 === 1) {
-      svg += svgTag('rect', {x:String(16), y:String(ry), width:String(W-32), height:String(rowH), fill:'#fefce8'});
+      svg += svgTag('rect', {x:String(12), y:String(ry), width:String(W-24), height:String(rowH), fill:'#fefce8'});
     }
-    // Bottom border
-    svg += svgTag('line', {x1:String(20), y1:String(ry+rowH), x2:String(W-20), y2:String(ry+rowH), stroke:'#fef3c7', 'stroke-width':'0.5'});
+    svg += svgTag('line', {x1:String(16), y1:String(ry+rowH), x2:String(W-16), y2:String(ry+rowH), stroke:'#fef3c7', 'stroke-width':'0.5'});
     
-    for (var c = 0; c < 8; c++) {
-      var ax = colAlign[c] === 'center' ? 'middle' : (colAlign[c] === 'right' ? 'end' : 'start');
-      var tx = colAlign[c] === 'center' ? colX[c]+colW[c]/2 : (colAlign[c] === 'right' ? colX[c]+colW[c]-8 : colX[c]+8);
-      var val = rows[r][c];
-      var color = c === 6 ? '#10b981' : '#444';
-      var fw = (c === 4 || c === 6) ? 'bold' : 'normal';
-      svg += svgTag('text', {x:String(tx), y:String(ry+21), 'text-anchor':ax, 'font-size':'12', 'font-weight':fw, fill:color}, val);
+    for (var c = 0; c < 6; c++) {
+      var ax = colAlign[c] === 'center' ? 'middle' : 'start';
+      var tx = colAlign[c] === 'center' ? colX[c]+colW[c]/2 : colX[c]+8;
+      var fw = c === 4 ? 'bold' : 'normal';
+      svg += svgTag('text', {x:String(tx), y:String(ry+21), 'text-anchor':ax, 'font-size':'12', 'font-weight':fw, fill:'#444'}, rows[r][c]);
     }
   }
   
-  // Summary box
-  var sby = tableY + tableH + 24;
-  svg += svgTag('rect', {x:String(16), y:String(sby), width:String(W-32), height:'100', rx:'12', fill:'#fdf2f8', stroke:'#fbcfe8', 'stroke-width':'2'});
-  svg += svgTag('text', {x:String(36), y:String(sby+32), 'font-size':'14', fill:'#666'}, '补货 SKU: '+selected.length+' 项');
-  svg += svgTag('text', {x:String(36), y:String(sby+58), 'font-size':'14', fill:'#666'}, '补货总成本:');
-  svg += svgTag('text', {x:String(200), y:String(sby+58), 'font-size':'22', 'font-weight':'bold', fill:'#ec4899'}, 'SGD $'+totalAmt.toFixed(2));
+  // Summary
+  var sby = tableY + tableH + 20;
+  svg += svgTag('rect', {x:String(12), y:String(sby), width:String(W-24), height:'56', rx:'12', fill:'#fdf2f8', stroke:'#fbcfe8', 'stroke-width':'2'});
+  svg += svgTag('text', {x:String(32), y:String(sby+24), 'font-size':'14', fill:'#666'}, '补货 SKU: '+selected.length+' 项');
+  svg += svgTag('text', {x:String(32), y:String(sby+46), 'font-size':'14', fill:'#666'}, '补货总件数: '+totalItems+' 件');
   
   svg += '</svg>';
   
   // Convert SVG to PNG via Canvas
   var canvas = document.createElement('canvas');
-  canvas.width = W * 2;  // 2x for retina
-  canvas.height = (summaryY + totalH) * 2;
+  canvas.width = W * 2;
+  canvas.height = svgH * 2;
   var ctx = canvas.getContext('2d');
   ctx.scale(2, 2);
   
@@ -698,24 +690,42 @@ function downloadImage() {
   
   img.onload = function() {
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, W, summaryY + totalH);
+    ctx.fillRect(0, 0, W, svgH);
     ctx.drawImage(img, 0, 0);
     URL.revokeObjectURL(url);
     
     canvas.toBlob(function(blob) {
-      var a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = '补货清单_'+today.replace(/[年月]/g,'-').replace('日','')+'.png';
-      a.click();
-      showToast('图片已保存 💾');
+      var file = new File([blob], '补货清单_'+today.replace(/[年月]/g,'-').replace('日','')+'.png', {type:'image/png'});
+      
+      // Try Web Share API (iOS/Android share sheet → Save Image)
+      if (navigator.canShare && navigator.canShare({files: [file]})) {
+        navigator.share({files: [file], title: '补货清单'}).then(function() {
+          showToast('已保存 📱');
+        }).catch(function() {
+          // Fallback: download
+          downloadBlob(blob, today);
+        });
+      } else {
+        downloadBlob(blob, today);
+      }
     }, 'image/png');
   };
   
   img.onerror = function() {
-    showToast('生成失败，请尝试截图保存', true);
+    showToast('生成失败，请重试', true);
   };
   
   img.src = url;
+}
+
+function downloadBlob(blob, today) {
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '补货清单_'+today.replace(/[年月]/g,'-').replace('日','')+'.png';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  showToast('图片已保存 💾');
 }
 
 function toggleCategory(el, cat) {
