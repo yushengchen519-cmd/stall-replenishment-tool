@@ -178,6 +178,8 @@ tr.group-header td:hover { background: linear-gradient(90deg, #fbcfe8, #fde68a) 
       <button class="btn btn-outline btn-sm" onclick="selectAllNeeding()">✅ 全选待补货</button>
       <button class="btn btn-outline btn-sm" onclick="clearAll()">🔄 清空选择</button>
       <button class="btn btn-primary" onclick="generateList()">🖨️ 生成补货 PDF</button>
+      <button class="btn btn-outline btn-sm" onclick="exportDataTSV()">📤 导出Excel</button>
+      <button class="btn btn-outline btn-sm" onclick="resetData()">🔄 重置数据</button>
       <button class="btn btn-green" onclick="printList()">🖨️ 打印</button>
     </div>
   </div>
@@ -276,18 +278,82 @@ var inventory = [
 ];
 
 // Split total stock into shelf + warehouse
-// shelf = displayed stock (max safety level on shelf)
-// warehouse = backup stock
-// When replenishing shelf: shelf↑ warehouse↓ (internal transfer, no cost)
-// When replenishing warehouse: warehouse↑ (supplier order, has cost)
 inventory.forEach(function(item) {
   var total = item.current_stock;
   item.shelf = Math.min(item.safety, Math.max(0, total));
   item.wh = Math.max(0, total - item.shelf);
   item.shelf_safety = item.safety;
   item.wh_safety = Math.round(item.safety * 1.5);
-  // Keep original as read-only reference
 });
+
+// ===== DATA PERSISTENCE (localStorage) =====
+var STORAGE_KEY = 'stall_inventory_v1';
+
+function saveData() {
+  var saveData = inventory.map(function(item) {
+    return {code:item.code,size:item.size,color:item.color, shelf:item.shelf, wh:item.wh, shelf_safety:item.shelf_safety, wh_safety:item.wh_safety};
+  });
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(saveData));
+}
+
+function loadData() {
+  var raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return false;
+  try {
+    var saved = JSON.parse(raw);
+    saved.forEach(function(s) {
+      for (var i = 0; i < inventory.length; i++) {
+        if (inventory[i].code === s.code && inventory[i].size === s.size && inventory[i].color === s.color) {
+          inventory[i].shelf = s.shelf;
+          inventory[i].wh = s.wh;
+          inventory[i].shelf_safety = s.shelf_safety;
+          inventory[i].wh_safety = s.wh_safety;
+          break;
+        }
+      }
+    });
+    return true;
+  } catch(e) { return false; }
+}
+
+function exportDataTSV() {
+  var lines = ['商品编号\t尺码\t颜色\t货架库存\t货架安全线\t仓库库存\t仓库安全线\t总库存'];
+  inventory.forEach(function(item) {
+    lines.push([item.code, item.size, item.color, item.shelf, item.shelf_safety, item.wh, item.wh_safety, item.shelf+item.wh].join('\t'));
+  });
+  var text = lines.join('\n');
+  navigator.clipboard.writeText(text).then(function() {
+    showToast('库存数据已复制，可粘贴到Excel 📋');
+  }).catch(function() {
+    // Fallback: show in a textarea
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;top:10%;left:10%;width:80%;height:60%;z-index:999;background:white;border:2px solid #ec4899;border-radius:10px;padding:16px;font-family:monospace;font-size:12px;';
+    var close = document.createElement('button');
+    close.textContent = '关闭';
+    close.style.cssText = 'position:fixed;top:11%;right:11%;z-index:1000;background:#ec4899;color:white;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;';
+    close.onclick = function(){ta.remove();close.remove();};
+    document.body.appendChild(ta);
+    document.body.appendChild(close);
+    ta.select();
+  });
+}
+
+function resetData() {
+  if (!confirm('确定要重置所有库存数据吗？这将恢复为初始值，且不可撤销。')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  inventory.forEach(function(item) {
+    var total = item.current_stock;
+    item.shelf = Math.min(item.safety, Math.max(0, total));
+    item.wh = Math.max(0, total - item.shelf);
+    item.shelf_safety = item.safety;
+    item.wh_safety = Math.round(item.safety * 1.5);
+  });
+  selections = {};
+  whSelections = {};
+  render();
+  showToast('数据已重置 🔄');
+}
 
 var suppliers = {
   "BR-001":"Triumph SG","BR-002":"Triumph SG","BR-003":"Triumph SG",
@@ -327,6 +393,10 @@ function init() {
   var selName = document.getElementById('filterName');
   names.forEach(n => { var o=document.createElement('option'); o.value=n; o.textContent=n; selName.appendChild(o); });
   updateThead();
+  var hasData = loadData();
+  if (hasData) {
+    // Data loaded from localStorage
+  }
   render();
 }
 
@@ -614,6 +684,8 @@ function generateList() {
   
   // Clear selections after applying
   if (isDaily) selections = {}; else whSelections = {};
+  // Auto-save to localStorage
+  saveData();
   
   // Group by supplier (only warehouse mode needs suppliers)
   var bySupplier = {};
@@ -904,6 +976,10 @@ function switchMode(mode) {
   document.getElementById('btnWarehouse').className = mode === 'warehouse' ? 'mode-btn active' : 'mode-btn';
   // Clear selections when switching modes
   updateThead();
+  var hasData = loadData();
+  if (hasData) {
+    // Data loaded from localStorage
+  }
   render();
 }
 
