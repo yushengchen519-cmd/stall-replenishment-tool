@@ -244,13 +244,15 @@ tr.group-header td:hover { background: linear-gradient(90deg, #fbcfe8, #fde68a) 
 
   <!-- 补货汇总 -->
   <div class="summary no-print" id="summaryPanel">
-    <h3>📋 本次补货清单</h3>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 style="margin:0;" id="summaryTitle">📋 本次补货清单</h3>
+      <div style="display:flex;gap:8px;flex-shrink:0;">
+        <button class="btn btn-outline btn-sm" onclick="copyAsText()">📋 复制</button>
+        <button class="btn btn-green btn-sm" onclick="downloadImage()">💾 保存</button>
+      </div>
+    </div>
     <table class="summary-table" id="summaryTable"></table>
     <div class="summary-total" id="summaryTotal"></div>
-    <div style="display:flex;gap:10px;margin-top:12px;">
-      <button class="btn btn-green" onclick="copyAsText()">📋 复制为文本</button>
-      <button class="btn btn-outline" onclick="downloadImage()">💾 保存图片</button>
-    </div>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -648,7 +650,7 @@ function updateSummary() {
   }
   panel.classList.add('active');
   var modeLabel = viewMode === 'daily' ? '📋 摊位补货清单（从仓库调拨）' : '📋 仓库进货清单（供应商采购）';
-  document.querySelector('#summaryPanel h3').textContent = modeLabel;
+  document.getElementById('summaryTitle').textContent = modeLabel;
   
   var isDaily = viewMode === 'daily';
   var html, totalItems = 0, totalAmt = 0;
