@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>服装档口 · 补货工具</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: "Microsoft YaHei","PingFang SC",sans-serif; background:#1a1a2e; color:#e0e0e0; min-height:100vh; }
+.container { max-width:1200px; margin:0 auto; padding:20px; }
+
+/* Header */
+.header { background:linear-gradient(135deg,#16213e,#0f3460); border-radius:12px; padding:24px 30px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; }
+.header h1 { font-size:24px; color:#e94560; }
+.header .date { font-size:14px; color:#888; }
+.header-right { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+
+/* Stats bar */
+.stats { display:flex; gap:16px; margin-bottom:20px; flex-wrap:wrap; }
+.stat-card { flex:1; min-width:140px; background:#16213e; border-radius:10px; padding:16px; text-align:center; }
+.stat-card .num { font-size:32px; font-weight:bold; }
+.stat-card .label { font-size:13px; color:#888; margin-top:4px; }
+.stat-card.danger .num { color:#e94560; }
+.stat-card.warning .num { color:#f5a623; }
+.stat-card.success .num { color:#2ecc71; }
+.stat-card.info .num { color:#3498db; }
+
+/* Controls */
+.controls { display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+.controls label { font-size:14px; color:#aaa; }
+.btn { padding:8px 20px; border:none; border-radius:8px; cursor:pointer; font-size:14px; font-weight:600; transition:all 0.2s; }
+.btn-primary { background:#e94560; color:white; }
+.btn-primary:hover { background:#c0392b; }
+.btn-outline { background:transparent; border:1px solid #e94560; color:#e94560; }
+.btn-outline:hover { background:rgba(233,69,96,0.1); }
+.btn-green { background:#2ecc71; color:white; }
+.btn-green:hover { background:#27ae60; }
+.btn-sm { padding:5px 12px; font-size:12px; }
+select, input[type="text"], input[type="number"] { background:#16213e; border:1px solid #333; color:#e0e0e0; padding:8px 12px; border-radius:6px; font-size:14px; }
+select:focus, input:focus { outline:none; border-color:#e94560; }
+
+/* Table */
+.table-wrap { background:#16213e; border-radius:12px; overflow:hidden; margin-bottom:20px; }
+table { width:100%; border-collapse:collapse; }
+th { background:#0f3460; padding:12px 10px; text-align:left; font-size:12px; color:#aaa; text-transform:uppercase; letter-spacing:0.5px; position:sticky; top:0; z-index:1; }
+td { padding:10px; border-bottom:1px solid #222; font-size:13px; }
+tr:hover td { background:rgba(233,69,96,0.05); }
+tr.selected td { background:rgba(233,69,96,0.12); }
+tr.group-header td { background:#1a1a3e !important; font-weight:bold; font-size:14px; color:#e94560; cursor:pointer; }
+tr.group-header td:hover { background:#1f1f4e !important; }
+
+.badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+.badge-danger { background:rgba(233,69,96,0.2); color:#e94560; }
+.badge-warning { background:rgba(245,166,35,0.2); color:#f5a623; }
+.badge-success { background:rgba(46,204,113,0.2); color:#2ecc71; }
+
+.qty-input { width:60px; text-align:center; background:#0f3460; border:1px solid #333; color:white; padding:6px; border-radius:4px; font-size:13px; }
+.qty-input:focus { border-color:#e94560; outline:none; }
+.qty-input:disabled { opacity:0.3; }
+
+.checkbox { width:18px; height:18px; accent-color:#e94560; cursor:pointer; }
+
+/* Summary */
+.summary { background:#16213e; border-radius:12px; padding:20px; margin-bottom:20px; display:none; }
+.summary.active { display:block; }
+.summary h3 { color:#e94560; margin-bottom:16px; font-size:16px; }
+.summary-table { width:100%; border-collapse:collapse; margin-bottom:16px; }
+.summary-table th { background:#0f3460; padding:8px; font-size:12px; }
+.summary-table td { padding:8px; border-bottom:1px solid #222; font-size:13px; }
+.summary-total { text-align:right; font-size:16px; color:#2ecc71; font-weight:bold; margin-top:8px; }
+
+/* Toast */
+.toast { position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:#2ecc71; color:white; padding:12px 24px; border-radius:8px; font-size:14px; z-index:100; opacity:0; transition:opacity 0.3s; }
+.toast.show { opacity:1; }
+.toast.error { background:#e94560; }
+
+/* Print */
+@media print {
+  body { background:white; color:black; }
+  .header, .stats, .controls, .btn, .checkbox, .qty-input, .summary, .toast, .no-print { display:none !important; }
+  .table-wrap { background:white; border:1px solid #ccc; }
+  th { background:#eee; color:black; }
+  td { color:black; border-color:#ddd; }
+  .badge-danger, .badge-warning, .badge-success { color:black; background:none; font-weight:bold; }
+}
+
+.empty-state { text-align:center; padding:40px; color:#888; }
+.empty-state .icon { font-size:48px; margin-bottom:12px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header no-print">
+    <div>
+      <h1>📦 服装档口 · 每日补货工具</h1>
+      <div class="date" id="todayDate"></div>
+    </div>
+    <div class="header-right">
+      <button class="btn btn-outline btn-sm" onclick="toggleAllItems()">📋 切换全部SKU</button>
+      <button class="btn btn-outline btn-sm" onclick="selectAllNeeding()">✅ 全选待补货</button>
+      <button class="btn btn-outline btn-sm" onclick="clearAll()">🔄 清空选择</button>
+      <button class="btn btn-primary" onclick="generateList()">📝 生成补货清单</button>
+      <button class="btn btn-green" onclick="printList()">🖨️ 打印</button>
+    </div>
+  </div>
+
+  <!-- 统计卡片 -->
+  <div class="stats no-print" id="statsBar"></div>
+
+  <!-- 筛选 -->
+  <div class="controls no-print">
+    <label>款式:</label>
+    <select id="filterName" onchange="render()">
+      <option value="all">全部款式</option>
+    </select>
+    <label>品类:</label>
+    <select id="filterCategory" onchange="render()">
+      <option value="all">全部品类</option>
+    </select>
+    <label>状态:</label>
+    <select id="filterStatus" onchange="render()">
+      <option value="needs">仅需补货（缺货+不足）</option>
+      <option value="all">全部状态</option>
+      <option value="out">仅缺货</option>
+      <option value="low">仅不足</option>
+    </select>
+    <span style="color:#888;font-size:13px;margin-left:auto;" id="selectedCount"></span>
+  </div>
+
+  <!-- SKU列表 -->
+  <div class="table-wrap">
+    <table id="skuTable">
+      <thead>
+        <tr>
+          <th style="width:40px;">☑</th>
+          <th>商品编号</th>
+          <th>品类</th>
+          <th>品牌</th>
+          <th>款式名称</th>
+          <th>尺码</th>
+          <th>颜色</th>
+          <th>存放位置</th>
+          <th>当前库存</th>
+          <th>安全库存</th>
+          <th>状态</th>
+          <th>建议补货</th>
+          <th>本次补货</th>
+          <th>供应商</th>
+          <th>成本单价</th>
+          <th>小计(SGD)</th>
+        </tr>
+      </thead>
+      <tbody id="skuBody"></tbody>
+    </table>
+  </div>
+
+  <!-- 补货汇总 -->
+  <div class="summary no-print" id="summaryPanel">
+    <h3>📋 本次补货清单</h3>
+    <table class="summary-table" id="summaryTable"></table>
+    <div class="summary-total" id="summaryTotal"></div>
+    <button class="btn btn-green" style="margin-top:12px;" onclick="copyAsText()">📋 复制为文本（可粘贴到Excel）</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+// ===== EMBEDDED DATA =====
+var inventory = [
+  {"code":"BR-001","category":"内衣","brand":"Triumph","name":"无钢圈舒适文胸","size":"34B","color":"黑色","location":"A架-1层","total_in":10,"sold":3,"current_stock":7,"safety":5,"suggested":0,"status":"充足"},
+  {"code":"BR-001","category":"内衣","brand":"Triumph","name":"无钢圈舒适文胸","size":"36B","color":"肤色","location":"","total_in":0,"sold":0,"current_stock":0,"safety":5,"suggested":10,"status":"缺货"},
+  {"code":"BR-001","category":"内衣","brand":"Triumph","name":"无钢圈舒适文胸","size":"34C","color":"黑色","location":"","total_in":0,"sold":0,"current_stock":0,"safety":5,"suggested":10,"status":"缺货"},
+  {"code":"BR-004","category":"内衣","brand":"Wacoal","name":"聚拢调整型文胸","size":"34B","color":"黑色","location":"A架-2层","total_in":5,"sold":1,"current_stock":4,"safety":3,"suggested":0,"status":"充足"},
+  {"code":"BR-004","category":"内衣","brand":"Wacoal","name":"聚拢调整型文胸","size":"36C","color":"肤色","location":"","total_in":0,"sold":0,"current_stock":0,"safety":3,"suggested":6,"status":"缺货"},
+  {"code":"UN-001","category":"内裤","brand":"Byford","name":"纯棉平角内裤(男)","size":"M","color":"灰色","location":"B架-1层","total_in":25,"sold":29,"current_stock":-4,"safety":10,"suggested":24,"status":"缺货"},
+  {"code":"UN-001","category":"内裤","brand":"Byford","name":"纯棉平角内裤(男)","size":"L","color":"灰色","location":"","total_in":0,"sold":0,"current_stock":0,"safety":10,"suggested":20,"status":"缺货"},
+  {"code":"UN-001","category":"内裤","brand":"Byford","name":"纯棉平角内裤(男)","size":"XL","color":"黑色","location":"","total_in":0,"sold":0,"current_stock":0,"safety":10,"suggested":20,"status":"缺货"},
+  {"code":"UN-004","category":"内裤","brand":"Renoma","name":"冰丝三角内裤(男)","size":"M","color":"蓝色","location":"B架-2层","total_in":12,"sold":2,"current_stock":10,"safety":10,"suggested":0,"status":"充足"},
+  {"code":"UN-004","category":"内裤","brand":"Renoma","name":"冰丝三角内裤(男)","size":"L","color":"黑色","location":"","total_in":0,"sold":0,"current_stock":0,"safety":10,"suggested":20,"status":"缺货"},
+  {"code":"UN-006","category":"内裤","brand":"Triumph","name":"蕾丝三角内裤(女)","size":"M","color":"粉色","location":"B架-3层","total_in":10,"sold":7,"current_stock":3,"safety":10,"suggested":17,"status":"不足"},
+  {"code":"UN-006","category":"内裤","brand":"Triumph","name":"蕾丝三角内裤(女)","size":"L","color":"肤色","location":"","total_in":0,"sold":0,"current_stock":0,"safety":10,"suggested":20,"status":"缺货"},
+  {"code":"SK-001","category":"袜子","brand":"Goldlion","name":"商务棉袜 3双装","size":"均码","color":"黑色","location":"C架-1层","total_in":30,"sold":29,"current_stock":1,"safety":15,"suggested":29,"status":"不足"},
+  {"code":"SK-001","category":"袜子","brand":"Goldlion","name":"商务棉袜 3双装","size":"均码","color":"深灰","location":"","total_in":0,"sold":0,"current_stock":0,"safety":15,"suggested":30,"status":"缺货"},
+  {"code":"SK-003","category":"袜子","brand":"Puma","name":"运动短袜(男)","size":"均码","color":"白色","location":"C架-2层","total_in":15,"sold":2,"current_stock":13,"safety":15,"suggested":17,"status":"不足"},
+  {"code":"SK-004","category":"袜子","brand":"Puma","name":"运动短袜(女)","size":"均码","color":"白色","location":"C架-2层","total_in":15,"sold":3,"current_stock":12,"safety":15,"suggested":18,"status":"不足"},
+  {"code":"SK-005","category":"袜子","brand":"Happy Socks","name":"彩色棉袜(女)","size":"均码","color":"花色","location":"C架-3层","total_in":10,"sold":5,"current_stock":5,"safety":10,"suggested":15,"status":"不足"},
+  {"code":"ST-001","category":"裤袜","brand":"Gunze","name":"发热保暖连裤袜","size":"M-L","color":"黑色","location":"D架-1层","total_in":8,"sold":2,"current_stock":6,"safety":5,"suggested":0,"status":"充足"},
+  {"code":"ST-001","category":"裤袜","brand":"Gunze","name":"发热保暖连裤袜","size":"L-LL","color":"深灰","location":"","total_in":0,"sold":0,"current_stock":0,"safety":5,"suggested":10,"status":"缺货"},
+  {"code":"ST-003","category":"裤袜","brand":"Atsugi","name":"压力美腿连裤袜","size":"M-L","color":"肤色","location":"D架-2层","total_in":5,"sold":1,"current_stock":4,"safety":3,"suggested":0,"status":"充足"}
+];
+
+var suppliers = {
+  "BR-001":"Triumph SG","BR-002":"Triumph SG","BR-003":"Triumph SG",
+  "BR-004":"Wacoal 代理","BR-005":"Wacoal 代理",
+  "UN-001":"Byford 批发","UN-002":"Byford 批发","UN-003":"Byford 批发",
+  "UN-004":"Renoma 总代","UN-005":"Renoma 总代",
+  "UN-006":"Triumph SG","UN-007":"Triumph SG",
+  "SK-001":"Goldlion 批发","SK-002":"Goldlion 批发",
+  "SK-003":"Puma 经销商","SK-004":"Puma 经销商",
+  "SK-005":"Happy Socks SG",
+  "ST-001":"Gunze 日本","ST-002":"Gunze 日本",
+  "ST-003":"Atsugi 代理"
+};
+
+var costs = {
+  "BR-001":10.5,"BR-002":10.5,"BR-003":10.5,"BR-004":14,"BR-005":14,
+  "UN-001":4.5,"UN-002":4.5,"UN-003":4.5,"UN-004":3.2,"UN-005":3.2,
+  "UN-006":3.8,"UN-007":3.8,
+  "SK-001":2.5,"SK-002":2.5,"SK-003":3,"SK-004":3,"SK-005":3.5,
+  "ST-001":8,"ST-002":8,"ST-003":10
+};
+
+var showAll = false;
+var selections = {}; // {index: qty}
+
+// ===== INIT =====
+function init() {
+  document.getElementById('todayDate').textContent = '📅 ' + new Date().toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
+  // Populate category filter
+  var cats = [...new Set(inventory.map(i=>i.category))];
+  var selCat = document.getElementById('filterCategory');
+  cats.forEach(c => { var o=document.createElement('option'); o.value=c; o.textContent=c; selCat.appendChild(o); });
+  // Populate name filter
+  var names = [...new Set(inventory.map(i=>i.name))];
+  var selName = document.getElementById('filterName');
+  names.forEach(n => { var o=document.createElement('option'); o.value=n; o.textContent=n; selName.appendChild(o); });
+  render();
+}
+
+function getFilteredData() {
+  var name = document.getElementById('filterName').value;
+  var cat = document.getElementById('filterCategory').value;
+  var status = document.getElementById('filterStatus').value;
+  return inventory.filter(function(item) {
+    if (name !== 'all' && item.name !== name) return false;
+    if (cat !== 'all' && item.category !== cat) return false;
+    if (status === 'needs') return item.current_stock < item.safety;
+    if (status === 'out') return item.status === '缺货';
+    if (status === 'low') return item.status === '不足';
+    return true;
+  });
+}
+
+function render() {
+  var data = getFilteredData();
+  var tbody = document.getElementById('skuBody');
+  
+  // Group by category
+  var groups = {};
+  data.forEach(function(item, idx) {
+    if (!groups[item.category]) groups[item.category] = [];
+    groups[item.category].push({item:item, origIdx:inventory.indexOf(item)});
+  });
+
+  var html = '';
+  var catOrder = ['内衣','内裤','袜子','裤袜'];
+  catOrder.forEach(function(cat) {
+    if (!groups[cat]) return;
+    var items = groups[cat];
+    html += '<tr class="group-header" onclick="toggleCategory(this,\''+cat+'\')"><td colspan="16">📂 '+cat+' ('+items.length+' SKU)</td></tr>';
+    items.forEach(function(entry) {
+      var item = entry.item;
+      var idx = entry.origIdx;
+      var statusClass = item.status==='缺货'?'danger':item.status==='不足'?'warning':'success';
+      var needsReplenish = item.current_stock < item.safety;
+      var selected = selections[idx] !== undefined;
+      var qty = selected ? selections[idx] : (needsReplenish ? item.suggested : 0);
+      var cost = costs[item.code] || 0;
+      var subtotal = (qty * cost).toFixed(2);
+      html += '<tr class="sku-row cat-'+cat+' '+(selected?'selected':'')+'" data-idx="'+idx+'">';
+      html += '<td><input type="checkbox" class="checkbox" '+(selected?'checked':'')+' onchange="toggleSelect('+idx+',this)" '+(!needsReplenish&&!showAll?'':'')+'></td>';
+      html += '<td>'+item.code+'</td>';
+      html += '<td>'+item.category+'</td>';
+      html += '<td>'+item.brand+'</td>';
+      html += '<td>'+item.name+'</td>';
+      html += '<td>'+item.size+'</td>';
+      html += '<td>'+item.color+'</td>';
+      html += '<td>'+item.location+'</td>';
+      html += '<td style="font-weight:bold;color:'+(item.current_stock<=0?'#e94560':item.current_stock<item.safety?'#f5a623':'#2ecc71')+'">'+item.current_stock+'</td>';
+      html += '<td>'+item.safety+'</td>';
+      html += '<td><span class="badge badge-'+statusClass+'">'+item.status+'</span></td>';
+      html += '<td style="color:#f5a623">'+(item.suggested > 0 ? item.suggested : '-')+'</td>';
+      html += '<td><input type="number" class="qty-input" value="'+qty+'" min="0" '+(selected?'':'disabled')+' onchange="updateQty('+idx+',this.value)" onclick="event.stopPropagation()"></td>';
+      html += '<td>'+ (suppliers[item.code] || '-') +'</td>';
+      html += '<td>$'+cost.toFixed(2)+'</td>';
+      html += '<td style="color:#2ecc71;font-weight:bold">$'+subtotal+'</td>';
+      html += '</tr>';
+    });
+  });
+  
+  tbody.innerHTML = html;
+  updateStats();
+  updateSummary();
+}
+
+function toggleSelect(idx, cb) {
+  if (cb.checked) {
+    var item = inventory[idx];
+    selections[idx] = item.suggested > 0 ? item.suggested : (item.safety - Math.max(0, item.current_stock));
+  } else {
+    delete selections[idx];
+  }
+  render();
+}
+
+function updateQty(idx, val) {
+  var qty = parseInt(val) || 0;
+  if (qty <= 0) {
+    delete selections[idx];
+  } else {
+    selections[idx] = qty;
+  }
+  updateSummary();
+  // Update subtotal cell
+  var cost = costs[inventory[idx].code] || 0;
+  var subtotal = (qty * cost).toFixed(2);
+  var row = document.querySelector('tr[data-idx="'+idx+'"]');
+  if (row) {
+    var cells = row.querySelectorAll('td');
+    cells[cells.length-1].textContent = '$'+subtotal;
+  }
+}
+
+function updateStats() {
+  var data = getFilteredData();
+  var all = inventory;
+  var outOfStock = all.filter(i=>i.status==='缺货').length;
+  var lowStock = all.filter(i=>i.status==='不足').length;
+  var adequate = all.filter(i=>i.status==='充足').length;
+  var needReplenish = all.filter(i=>i.current_stock < i.safety).length;
+  
+  document.getElementById('statsBar').innerHTML = 
+    '<div class="stat-card danger"><div class="num">'+outOfStock+'</div><div class="label">缺货 SKU</div></div>'+
+    '<div class="stat-card warning"><div class="num">'+lowStock+'</div><div class="label">库存不足</div></div>'+
+    '<div class="stat-card success"><div class="num">'+adequate+'</div><div class="label">库存充足</div></div>'+
+    '<div class="stat-card info"><div class="num">'+needReplenish+'</div><div class="label">需补货合计</div></div>';
+  
+  var selCount = Object.keys(selections).length;
+  document.getElementById('selectedCount').textContent = '已选补货: '+selCount+' 项';
+}
+
+function updateSummary() {
+  var panel = document.getElementById('summaryPanel');
+  var tbody = document.getElementById('summaryTable');
+  var totalEl = document.getElementById('summaryTotal');
+  
+  var selected = Object.keys(selections).map(Number);
+  if (selected.length === 0) {
+    panel.classList.remove('active');
+    return;
+  }
+  panel.classList.add('active');
+  
+  var html = '<tr><th>商品编号</th><th>款式</th><th>尺码</th><th>颜色</th><th>数量</th><th>成本单价</th><th>金额</th><th>供应商</th></tr>';
+  var total = 0;
+  selected.forEach(function(idx) {
+    var item = inventory[idx];
+    var qty = selections[idx];
+    var cost = costs[item.code] || 0;
+    var amt = qty * cost;
+    total += amt;
+    html += '<tr>';
+    html += '<td>'+item.code+'</td><td>'+item.name+'</td><td>'+item.size+'</td><td>'+item.color+'</td>';
+    html += '<td>'+qty+'</td><td>$'+cost.toFixed(2)+'</td><td>$'+amt.toFixed(2)+'</td>';
+    html += '<td>'+ (suppliers[item.code]||'-') +'</td>';
+    html += '</tr>';
+  });
+  tbody.innerHTML = html;
+  totalEl.innerHTML = '💰 补货总成本: <span style="font-size:22px;">SGD $'+total.toFixed(2)+'</span> （'+selected.length+' 项）';
+}
+
+function toggleAllItems() {
+  showAll = !showAll;
+  document.getElementById('filterStatus').value = showAll ? 'all' : 'needs';
+  render();
+}
+
+function selectAllNeeding() {
+  var data = getFilteredData();
+  data.forEach(function(item) {
+    var idx = inventory.indexOf(item);
+    if (item.current_stock < item.safety) {
+      selections[idx] = item.suggested > 0 ? item.suggested : (item.safety - Math.max(0, item.current_stock));
+    }
+  });
+  render();
+}
+
+function clearAll() {
+  selections = {};
+  render();
+}
+
+function generateList() {
+  var selected = Object.keys(selections).map(Number);
+  if (selected.length === 0) {
+    showToast('请先勾选需要补货的SKU', true);
+    return;
+  }
+  updateSummary();
+  document.getElementById('summaryPanel').scrollIntoView({behavior:'smooth'});
+  showToast('已生成补货清单 ✅');
+}
+
+function printList() {
+  window.print();
+}
+
+function copyAsText() {
+  var selected = Object.keys(selections).map(Number);
+  if (selected.length === 0) return;
+  var lines = ['日期\t商品编号\t款式名称\t尺码\t颜色\t补货数量\t成本单价\t金额\t供应商'];
+  var total = 0;
+  selected.forEach(function(idx) {
+    var item = inventory[idx];
+    var qty = selections[idx];
+    var cost = costs[item.code] || 0;
+    var amt = qty * cost;
+    total += amt;
+    lines.push(['', item.code, item.name, item.size, item.color, qty, cost.toFixed(2), amt.toFixed(2), suppliers[item.code]||''].join('\t'));
+  });
+  lines.push(['', '', '', '', '', '', '', total.toFixed(2), ''].join('\t'));
+  navigator.clipboard.writeText(lines.join('\n')).then(function() {
+    showToast('已复制到剪贴板 📋');
+  }).catch(function() {
+    showToast('复制失败，请手动选择表格', true);
+  });
+}
+
+function toggleCategory(el, cat) {
+  var rows = document.querySelectorAll('.cat-'+cat);
+  var hidden = rows[0] && rows[0].style.display === 'none';
+  rows.forEach(function(r) { r.style.display = hidden ? '' : 'none'; });
+  el.querySelector('td').textContent = (hidden ? '📂' : '📁') + ' '+cat+' ('+rows.length+' SKU)';
+}
+
+function showToast(msg, isError) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast '+(isError?'error':'')+' show';
+  setTimeout(function(){ t.className = 'toast'; }, 2000);
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+  if (e.ctrlKey && e.key === 'a') { e.preventDefault(); selectAllNeeding(); }
+  if (e.ctrlKey && e.key === 'g') { e.preventDefault(); generateList(); }
+  if (e.ctrlKey && e.key === 'p') { e.preventDefault(); printList(); }
+});
+
+init();
+</script>
+</body>
+</html>
