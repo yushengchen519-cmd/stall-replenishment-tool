@@ -643,23 +643,32 @@ function updateSummary() {
   document.querySelector('#summaryPanel h3').textContent = modeLabel;
   
   var isDaily = viewMode === 'daily';
-  var html = isDaily
-    ? '<tr><th>商品编号</th><th>款式</th><th>尺码</th><th>颜色</th><th>数量</th><th>来源</th></tr>'
-    : '<tr><th>商品编号</th><th>款式</th><th>尺码</th><th>颜色</th><th>数量</th><th>供应商</th></tr>';
-  var totalItems = 0;
-  selected.forEach(function(idx) {
-    var item = inventory[idx];
-    var qty = selsActive[idx];
-    totalItems += qty;
-    html += '<tr>';
-    html += '<td>'+item.code+'</td><td>'+item.name+'</td><td>'+item.size+'</td><td>'+item.color+'</td>';
-    html += '<td>'+qty+'</td>';
-    html += '<td>'+(isDaily ? '📦 仓库调拨' : (suppliers[item.code]||'-'))+'</td>';
-    html += '</tr>';
-  });
-  tbody.innerHTML = html;
-  var label = isDaily ? '📦 摊位补货（从仓库调拨）' : '🏭 仓库进货（供应商采购）';
-  totalEl.innerHTML = label + ' — 总件数: <span style="font-size:22px;">'+totalItems+' 件</span> （'+selected.length+' 项）';
+  var html, totalItems = 0, totalAmt = 0;
+  
+  if (isDaily) {
+    html = '<tr><th>商品编号</th><th>款式</th><th>尺码</th><th>颜色</th><th>数量</th><th>来源</th></tr>';
+    selected.forEach(function(idx) {
+      var item = inventory[idx];
+      var qty = selsActive[idx];
+      totalItems += qty;
+      html += '<tr><td>'+item.code+'</td><td>'+item.name+'</td><td>'+item.size+'</td><td>'+item.color+'</td><td>'+qty+'</td><td>📦 仓库调拨</td></tr>';
+    });
+    tbody.innerHTML = html;
+    totalEl.innerHTML = '📦 摊位补货（从仓库调拨） — 总件数: <span style="font-size:22px;">'+totalItems+' 件</span> （'+selected.length+' 项）';
+  } else {
+    html = '<tr><th>商品编号</th><th>款式</th><th>尺码</th><th>颜色</th><th>数量</th><th>单价</th><th>小计</th><th>供应商</th></tr>';
+    selected.forEach(function(idx) {
+      var item = inventory[idx];
+      var qty = selsActive[idx];
+      var cost = costs[item.code] || 0;
+      var amt = qty * cost;
+      totalItems += qty;
+      totalAmt += amt;
+      html += '<tr><td>'+item.code+'</td><td>'+item.name+'</td><td>'+item.size+'</td><td>'+item.color+'</td><td>'+qty+'</td><td>$'+cost.toFixed(2)+'</td><td style="color:#10b981;font-weight:bold">$'+amt.toFixed(2)+'</td><td>'+(suppliers[item.code]||'-')+'</td></tr>';
+    });
+    tbody.innerHTML = html;
+    totalEl.innerHTML = '🏭 仓库进货（供应商采购） — 总件数: <span style="font-size:22px;">'+totalItems+' 件</span>，总金额: <span style="font-size:22px;color:#ec4899;">SGD $'+totalAmt.toFixed(2)+'</span> （'+selected.length+' 项）';
+  }
 }
 
 function toggleAllItems() {
