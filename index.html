@@ -122,7 +122,7 @@ tr.group-header td:hover { background: linear-gradient(90deg, #fbcfe8, #fde68a) 
   /* Controls */
   .controls { gap:8px; }
   .controls label { font-size:11px; }
-  .controls select { font-size:12px; padding:6px 10px; max-width:120px; }
+  .controls select { font-size:12px; padding:6px 10px; max-width:100px; }
   
   /* Table - scrollable on desktop, compact on mobile */
   .table-wrap { border-radius:14px; }
@@ -189,6 +189,10 @@ tr.group-header td:hover { background: linear-gradient(90deg, #fbcfe8, #fde68a) 
 
   <!-- 筛选 -->
   <div class="controls no-print">
+    <label>编号:</label>
+    <select id="filterCode" onchange="render()">
+      <option value="all">全部编号</option>
+    </select>
     <label>款式:</label>
     <select id="filterName" onchange="render()">
       <option value="all">全部款式</option>
@@ -317,7 +321,7 @@ function loadData() {
 }
 
 function exportDataTSV() {
-  var lines = ['商品编号\t尺码\t颜色\t货架库存\t货架安全线\t仓库库存\t仓库安全线\t总库存'];
+  var lines = ['商品编号\t尺码\t颜色\t摊位库存\t摊位安全线\t仓库库存\t仓库安全线\t总库存'];
   inventory.forEach(function(item) {
     lines.push([item.code, item.size, item.color, item.shelf, item.shelf_safety, item.wh, item.wh_safety, item.shelf+item.wh].join('\t'));
   });
@@ -388,6 +392,10 @@ function init() {
   var cats = [...new Set(inventory.map(i=>i.category))];
   var selCat = document.getElementById('filterCategory');
   cats.forEach(c => { var o=document.createElement('option'); o.value=c; o.textContent=c; selCat.appendChild(o); });
+  // Populate code filter
+  var codes = [...new Set(inventory.map(i=>i.code))];
+  var selCode = document.getElementById('filterCode');
+  codes.forEach(c => { var o=document.createElement('option'); o.value=c; o.textContent=c; selCode.appendChild(o); });
   // Populate name filter
   var names = [...new Set(inventory.map(i=>i.name))];
   var selName = document.getElementById('filterName');
@@ -401,10 +409,12 @@ function init() {
 }
 
 function getFilteredData() {
+  var code = document.getElementById('filterCode').value;
   var name = document.getElementById('filterName').value;
   var cat = document.getElementById('filterCategory').value;
   var status = document.getElementById('filterStatus').value;
   return inventory.filter(function(item) {
+    if (code !== 'all' && item.code !== code) return false;
     if (name !== 'all' && item.name !== name) return false;
     if (cat !== 'all' && item.category !== cat) return false;
     var stock = viewMode === 'daily' ? item.shelf : item.wh;
@@ -589,9 +599,9 @@ function updateStats() {
   
   var isDaily = viewMode === 'daily';
   document.getElementById('statsBar').innerHTML = 
-    '<div class="stat-card danger"><div class="num">'+outOfStock+'</div><div class="label">缺货('+(isDaily?'货架':'仓库')+')</div></div>'+
-    '<div class="stat-card warning"><div class="num">'+lowStock+'</div><div class="label">库存不足('+(isDaily?'货架':'仓库')+')</div></div>'+
-    '<div class="stat-card success"><div class="num">'+adequate+'</div><div class="label">库存充足('+(isDaily?'货架':'仓库')+')</div></div>'+
+    '<div class="stat-card danger"><div class="num">'+outOfStock+'</div><div class="label">缺货('+(isDaily?'摊位':'仓库')+')</div></div>'+
+    '<div class="stat-card warning"><div class="num">'+lowStock+'</div><div class="label">库存不足('+(isDaily?'摊位':'仓库')+')</div></div>'+
+    '<div class="stat-card success"><div class="num">'+adequate+'</div><div class="label">库存充足('+(isDaily?'摊位':'仓库')+')</div></div>'+
     '<div class="stat-card info"><div class="num">'+needReplenish+'</div><div class="label">需'+(isDaily?'补货':'进货')+'合计</div></div>';
   
   var selsActive = viewMode === 'daily' ? selections : whSelections;
@@ -612,7 +622,7 @@ function updateSummary() {
     return;
   }
   panel.classList.add('active');
-  var modeLabel = viewMode === 'daily' ? '📋 货架补货清单（从仓库调拨）' : '📋 仓库进货清单（供应商采购）';
+  var modeLabel = viewMode === 'daily' ? '📋 摊位补货清单（从仓库调拨）' : '📋 仓库进货清单（供应商采购）';
   document.querySelector('#summaryPanel h3').textContent = modeLabel;
   
   var isDaily = viewMode === 'daily';
@@ -631,7 +641,7 @@ function updateSummary() {
     html += '</tr>';
   });
   tbody.innerHTML = html;
-  var label = isDaily ? '📦 货架补货（从仓库调拨）' : '🏭 仓库进货（供应商采购）';
+  var label = isDaily ? '📦 摊位补货（从仓库调拨）' : '🏭 仓库进货（供应商采购）';
   totalEl.innerHTML = label + ' — 总件数: <span style="font-size:22px;">'+totalItems+' 件</span> （'+selected.length+' 项）';
 }
 
@@ -787,7 +797,7 @@ function generateList() {
   
   // Also update in-page summary
   updateSummary();
-  var modeLabel = isDaily ? '货架补货完成（仓库→货架）' : '仓库进货完成（供应商→仓库）';
+  var modeLabel = isDaily ? '摊位补货完成（仓库→摊位）' : '仓库进货完成（供应商→仓库）';
   showToast(modeLabel + ' ✅ 库存已更新');
 }
 
