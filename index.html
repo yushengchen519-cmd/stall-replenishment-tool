@@ -45,10 +45,12 @@ select, input[type="text"], input[type="number"] { background:white; border:2px 
 select:focus, input:focus { outline:none; border-color:#f9a8d4; box-shadow: 0 0 0 3px rgba(249,168,212,0.15); }
 
 /* Table */
-.table-wrap { background:white; border-radius:20px; overflow:hidden; margin-bottom:20px; box-shadow: 0 4px 20px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.03); }
-table { width:100%; border-collapse:collapse; }
-th { background: linear-gradient(180deg, #fdf2f8, #fce7f3); padding:14px 10px; text-align:left; font-size:11px; color:#be185d; text-transform:uppercase; letter-spacing:0.8px; position:sticky; top:0; z-index:1; border-bottom: 2px solid #fbcfe8; }
-td { padding:11px 10px; border-bottom:1px solid #fef3c7; font-size:13px; }
+.table-wrap { background:white; border-radius:20px; overflow:hidden; margin-bottom:20px; box-shadow: 0 4px 20px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.03); overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.table-wrap::after { content:''; position:sticky; right:0; top:0; bottom:0; width:24px; background:linear-gradient(90deg,transparent,rgba(236,72,153,0.06)); pointer-events:none; display:none; }
+table { width:100%; border-collapse:collapse; min-width:900px; }
+th { background: linear-gradient(180deg, #fdf2f8, #fce7f3); padding:14px 10px; text-align:left; font-size:11px; color:#be185d; text-transform:uppercase; letter-spacing:0.8px; position:sticky; top:0; z-index:1; border-bottom: 2px solid #fbcfe8; white-space:nowrap; }
+td { padding:11px 10px; border-bottom:1px solid #fef3c7; font-size:13px; white-space:nowrap; }
+td.wrap { white-space:normal; }
 tr:nth-child(even) td { background:#fefce8; }
 tr:hover td { background:#fdf2f8 !important; }
 tr.selected td { background:#ffe4e6 !important; }
@@ -93,6 +95,66 @@ tr.group-header td:hover { background: linear-gradient(90deg, #fbcfe8, #fde68a) 
 @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
 .empty-state { text-align:center; padding:40px; color:#999; }
 .empty-state .icon { font-size:48px; margin-bottom:12px; }
+
+/* === Mobile: portrait phones === */
+@media (max-width: 768px) {
+  .container { padding:10px; }
+  
+  /* Header */
+  .header { padding:16px; border-radius:14px; flex-direction:column; align-items:stretch; }
+  .header h1 { font-size:18px; }
+  .header .date { font-size:12px; }
+  .header-right { gap:6px; }
+  .header-right .btn { flex:1; text-align:center; padding:8px 6px; font-size:11px; border-radius:20px; min-width:0; }
+  .header-right .btn-sm { font-size:10px; padding:6px 8px; }
+  
+  /* Stats */
+  .stats { gap:8px; }
+  .stat-card { min-width:0; flex:1 1 calc(50% - 8px); padding:12px 8px; border-radius:12px; }
+  .stat-card .num { font-size:26px; }
+  .stat-card .label { font-size:10px; }
+  
+  /* Controls */
+  .controls { gap:8px; }
+  .controls label { font-size:11px; }
+  .controls select { font-size:12px; padding:6px 10px; max-width:120px; }
+  
+  /* Table - scrollable */
+  .table-wrap { border-radius:14px; }
+  .table-wrap::after { display:block; }
+  th { padding:10px 6px; font-size:9px; }
+  td { padding:9px 6px; font-size:12px; }
+  
+  /* Touch-friendly checkboxes and inputs */
+  .checkbox { width:24px; height:24px; }
+  .qty-input { width:52px; font-size:15px; padding:8px 4px; }
+  .badge { font-size:10px; padding:2px 7px; }
+  
+  /* Summary */
+  .summary { padding:16px; border-radius:14px; }
+  .summary h3 { font-size:15px; }
+  .summary-table th, .summary-table td { font-size:11px; padding:6px 4px; }
+  .summary-total { font-size:14px; }
+  
+  /* Buttons in summary */
+  .summary .btn { font-size:12px; padding:8px 14px; }
+  
+  /* Print panel adjustments */
+  .doc-header h1 { font-size:20px; }
+  .doc-header .date { font-size:13px; }
+}
+
+/* === Very small phones === */
+@media (max-width: 400px) {
+  .container { padding:6px; }
+  .header { padding:12px; border-radius:10px; }
+  .header h1 { font-size:16px; }
+  .header-right .btn { font-size:10px; padding:6px 4px; }
+  .stat-card { padding:10px 6px; }
+  .stat-card .num { font-size:22px; }
+  .controls { flex-direction:column; gap:6px; }
+  .controls select { max-width:100%; width:100%; }
+}
 </style>
 </head>
 <body>
