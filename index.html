@@ -539,19 +539,22 @@ function render() {
   var item = inventory[idx];
   var isDaily = viewMode === 'daily';
   var sels = isDaily ? selections : whSelections;
-  var stock = isDaily ? item.shelf : item.wh;
-  var safe = isDaily ? item.shelf_safety : item.wh_safety;
-  var sug = Math.max(0, safe - stock);
   if (cb.checked) {
-    // Daily: can't take more than warehouse has
-    var maxQty = isDaily ? item.wh : 9999;
-    var defQty = sug > 0 ? sug : 0;
-    sels[idx] = Math.min(defQty, Math.max(0, maxQty));
-    if (isDaily && maxQty <= 0) {
-      showToast('仓库库存不足，请先补仓库！', true);
-      delete sels[idx];
-      render();
-      return;
+    if (isDaily) {
+      // Daily: no stock concept, user enters manually. Default to 0.
+      // Still enforce warehouse cap
+      if (item.wh <= 0) {
+        showToast('仓库库存不足，请先补仓库！', true);
+        render();
+        return;
+      }
+      sels[idx] = 0;
+    } else {
+      var stock = item.wh;
+      var safe = item.wh_safety;
+      var sug = Math.max(0, safe - stock);
+      var defQty = sug > 0 ? sug : 0;
+      sels[idx] = defQty;
     }
   } else {
     delete sels[idx];
@@ -678,17 +681,20 @@ function toggleAllItems() {
 }
 
 function selectAllNeeding() {
-  var data = getFilteredData();
   var isDaily = viewMode === 'daily';
-  var sels = isDaily ? selections : whSelections;
+  if (isDaily) {
+    showToast('摊位模式请手动勾选需要补货的SKU', true);
+    return;
+  }
+  var data = getFilteredData();
+  var sels = whSelections;
   data.forEach(function(item) {
     var idx = inventory.indexOf(item);
-    var stock = isDaily ? item.shelf : item.wh;
-    var safe = isDaily ? item.shelf_safety : item.wh_safety;
+    var stock = item.wh;
+    var safe = item.wh_safety;
     var sug = Math.max(0, safe - stock);
     if (stock < safe) {
-      var maxQty = isDaily ? item.wh : 9999;
-      sels[idx] = Math.min(sug > 0 ? sug : (safe - Math.max(0, stock)), maxQty);
+      sels[idx] = sug > 0 ? sug : 0;
     }
   });
   render();
