@@ -290,6 +290,11 @@ inventory.forEach(function(item) {
   item.wh_safety = Math.round(item.safety * 1.5);
 });
 
+// Global stock bump: +3 warehouse for every variant
+inventory.forEach(function(item) {
+  item.wh += 3;
+});
+
 // ===== DATA PERSISTENCE (localStorage) =====
 var STORAGE_KEY = 'stall_inventory_v1';
 
@@ -402,8 +407,9 @@ function init() {
   names.forEach(n => { var o=document.createElement('option'); o.value=n; o.textContent=n; selName.appendChild(o); });
   updateThead();
   var hasData = loadData();
-  if (hasData) {
-    // Data loaded from localStorage
+  if (!hasData) {
+    inventory.forEach(function(item) { item.wh += 3; });
+    saveData();
   }
   render();
 }
@@ -994,10 +1000,6 @@ function switchMode(mode) {
   document.getElementById('btnWarehouse').className = mode === 'warehouse' ? 'mode-btn active' : 'mode-btn';
   // Clear selections when switching modes
   updateThead();
-  var hasData = loadData();
-  if (hasData) {
-    // Data loaded from localStorage
-  }
   render();
 }
 
