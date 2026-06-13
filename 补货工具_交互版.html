@@ -482,11 +482,11 @@ function render() {
       // Daily: always enabled (user enters manually from shelf check)
       // Warehouse: disabled unless selected or stock < safety
       var disabled = isDaily ? '' : (sel||(s<sf)?'':'disabled');
-      return '<input type="number" class="qty-input" value="'+qty+'" min="0" '+disabled+' onchange="updateQty('+ix+',this.value)" onclick="event.stopPropagation()">';
+      return '<input type="number" class="qty-input" value="'+qty+'" min="0" '+disabled+' oninput="updateQty('+ix+',this.value,this)" onclick="event.stopPropagation()">';
     }},
     {h:'供应商',   a:0, m:1, d:1, r:function(it,ix){return suppliers[it.code]||'-';}},
     {h:'成本单价', a:0, m:1, d:1, r:function(it,ix){var c=costs[it.code]||0;return '$'+c.toFixed(2);}},
-    {h:'小计(SGD)',a:0, m:1, d:0, r:function(it,ix){
+    {h:'小计(SGD)',a:0, m:1, d:1, r:function(it,ix){
       var sels = isDaily ? selections : whSelections;
       var qty = sels[ix] || 0;
       return '<span style="color:#10b981;font-weight:bold">$'+(qty*(costs[it.code]||0)).toFixed(2)+'</span>';
@@ -545,14 +545,15 @@ function render() {
   render();
 }
 
-function updateQty(idx, val) {
+function updateQty(idx, val, inputEl) {
   var qty = parseInt(val) || 0;
   var isDaily = viewMode === 'daily';
   var sels = isDaily ? selections : whSelections;
   var item = inventory[idx];
-  // Daily: limit to warehouse stock
+  // Daily: hard cap to warehouse stock, reflect in DOM immediately
   if (isDaily && qty > item.wh) {
     qty = item.wh;
+    if (inputEl) inputEl.value = qty;
     showToast('最多补 '+item.wh+' 件（仓库余量）', true);
   }
   if (qty <= 0) {
@@ -561,13 +562,12 @@ function updateQty(idx, val) {
     sels[idx] = qty;
   }
   updateSummary();
-  // Update subtotal cell
   var cost = costs[inventory[idx].code] || 0;
   var subtotal = (qty * cost).toFixed(2);
   var row = document.querySelector('tr[data-idx="'+idx+'"]');
   if (row) {
-    var cells = row.querySelectorAll('td');
-    cells[cells.length-1].textContent = '$'+subtotal;
+    var subCell = row.querySelector('.subtotal-val');
+    if (subCell) subCell.textContent = '$'+subtotal;
   }
 }
 
@@ -1017,7 +1017,7 @@ function updateThead() {
     {h:isDaily?'补货':'进货', a:1, m:0, d:0},
     {h:'供应商',   a:0, m:1, d:1},
     {h:'成本单价', a:0, m:1, d:1},
-    {h:'小计(SGD)',a:0, m:1, d:0}
+    {h:'小计(SGD)',a:0, m:1, d:1}
   ];
   var vis = [];
   for (var i = 0; i < cols.length; i++) {
