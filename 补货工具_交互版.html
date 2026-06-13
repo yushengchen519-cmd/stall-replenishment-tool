@@ -448,8 +448,8 @@ function render() {
   var colDefs = [
     {h:'☑',        a:1, m:0, d:0, r:function(it,ix){return '<input type="checkbox" class="checkbox" '+(isSelected(ix)?'checked':'')+' onchange="toggleSelect('+ix+',this)">';}},
     {h:'商品编号', a:1, m:0, d:0, r:function(it,ix){return it.code;}},
-    {h:'品类',     a:0, m:1, d:0, r:function(it,ix){return it.category;}},
-    {h:'品牌',     a:0, m:1, d:0, r:function(it,ix){return it.brand;}},
+    {h:'品类',     a:0, m:1, d:1, r:function(it,ix){return it.category;}},
+    {h:'品牌',     a:0, m:1, d:1, r:function(it,ix){return it.brand;}},
     {h:'款式名称', a:1, m:0, d:0, r:function(it,ix){return it.name;}},
     {h:'尺码',     a:1, m:0, d:0, r:function(it,ix){return it.size;}},
     {h:'颜色',     a:1, m:0, d:0, r:function(it,ix){return it.color;}},
@@ -1004,8 +1004,8 @@ function updateThead() {
   var cols = [
     {h:'☑',        a:1, m:0, d:0},
     {h:'商品编号', a:1, m:0, d:0},
-    {h:'品类',     a:0, m:1, d:0},
-    {h:'品牌',     a:0, m:1, d:0},
+    {h:'品类',     a:0, m:1, d:1},
+    {h:'品牌',     a:0, m:1, d:1},
     {h:'款式名称', a:1, m:0, d:0},
     {h:'尺码',     a:1, m:0, d:0},
     {h:'颜色',     a:1, m:0, d:0},
