@@ -597,15 +597,19 @@ function updateStats() {
   }).length;
   
   var isDaily = viewMode === 'daily';
-  document.getElementById('statsBar').innerHTML = 
-    '<div class="stat-card danger"><div class="num">'+outOfStock+'</div><div class="label">缺货('+(isDaily?'摊位':'仓库')+')</div></div>'+
-    '<div class="stat-card warning"><div class="num">'+lowStock+'</div><div class="label">库存不足('+(isDaily?'摊位':'仓库')+')</div></div>'+
-    '<div class="stat-card success"><div class="num">'+adequate+'</div><div class="label">库存充足('+(isDaily?'摊位':'仓库')+')</div></div>'+
-    '<div class="stat-card info"><div class="num">'+needReplenish+'</div><div class="label">需'+(isDaily?'补货':'进货')+'合计</div></div>';
+  if (isDaily) {
+    document.getElementById('statsBar').innerHTML = '<div class="stat-card info" style="flex:1;text-align:center"><div class="num" style="font-size:20px">🏪</div><div class="label">摊位补货模式 — 从仓库调拨</div></div>';
+  } else {
+    document.getElementById('statsBar').innerHTML = 
+      '<div class="stat-card danger"><div class="num">'+outOfStock+'</div><div class="label">缺货(仓库)</div></div>'+
+      '<div class="stat-card warning"><div class="num">'+lowStock+'</div><div class="label">库存不足(仓库)</div></div>'+
+      '<div class="stat-card success"><div class="num">'+adequate+'</div><div class="label">库存充足(仓库)</div></div>'+
+      '<div class="stat-card info"><div class="num">'+needReplenish+'</div><div class="label">需进货合计</div></div>';
+  }
   
   var selsActive = viewMode === 'daily' ? selections : whSelections;
   var selCount = Object.keys(selsActive).length;
-  var actionLabel = viewMode === 'daily' ? '已选补货' : '已选进货';
+  var actionLabel = isDaily ? '已选补货' : '已选进货';
   document.getElementById('selectedCount').textContent = actionLabel + ': '+selCount+' 项';
 }
 
