@@ -545,7 +545,7 @@ function render() {
   if (cb.checked) {
     // Daily: can't take more than warehouse has
     var maxQty = isDaily ? item.wh : 9999;
-    var defQty = sug > 0 ? sug : (safe - Math.max(0, stock));
+    var defQty = sug > 0 ? sug : 0;
     sels[idx] = Math.min(defQty, Math.max(0, maxQty));
     if (isDaily && maxQty <= 0) {
       showToast('仓库库存不足，请先补仓库！', true);
