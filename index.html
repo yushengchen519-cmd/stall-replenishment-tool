@@ -166,7 +166,10 @@ tr.group-header td:hover { background: linear-gradient(90deg, #fbcfe8, #fde68a) 
     <h3>📋 本次补货清单</h3>
     <table class="summary-table" id="summaryTable"></table>
     <div class="summary-total" id="summaryTotal"></div>
-    <button class="btn btn-green" style="margin-top:12px;" onclick="copyAsText()">📋 复制为文本（可粘贴到Excel）</button>
+    <div style="display:flex;gap:10px;margin-top:12px;">
+      <button class="btn btn-green" onclick="copyAsText()">📋 复制为文本</button>
+      <button class="btn btn-outline" onclick="downloadImage()">💾 保存图片</button>
+    </div>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -527,6 +530,124 @@ function copyAsText() {
   }).catch(function() {
     showToast('复制失败，请手动选择表格', true);
   });
+}
+
+function downloadImage() {
+  var selected = Object.keys(selections).map(Number);
+  if (selected.length === 0) { showToast('请先勾选需要补货的SKU', true); return; }
+  
+  var today = new Date().toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric'});
+  var W = 780, rowH = 32, headerH = 36, padX = 16, padY = 20;
+  var colX = [20, 100, 300, 360, 420, 490, 580, 680]; // column x positions
+  var colW = [80, 200, 60, 60, 70, 90, 100, 80];
+  var colNames = ['商品编号', '款式名称', '尺码', '颜色', '数量', '成本单价', '金额', '供应商'];
+  var colAlign = ['left','left','center','center','center','center','right','left'];
+  
+  // Build row data
+  var rows = [];
+  var totalAmt = 0;
+  selected.forEach(function(idx) {
+    var item = inventory[idx];
+    var qty = selections[idx];
+    var cost = costs[item.code] || 0;
+    var amt = qty * cost;
+    totalAmt += amt;
+    rows.push([item.code, item.name, item.size, item.color, String(qty), '$'+cost.toFixed(2), '$'+amt.toFixed(2), suppliers[item.code]||'-']);
+  });
+  
+  var titleY = 55, tableY = 100;
+  var tableH = headerH + rows.length * rowH;
+  var summaryY = tableY + tableH + 24;
+  var totalH = 120 + rows.length * rowH;
+  
+  // SVG namespace
+  function svgTag(tag, attrs, content) {
+    var s = '<'+tag;
+    for (var k in attrs) s += ' '+k+'="'+attrs[k]+'"';
+    if (content !== undefined) s += '>'+content+'</'+tag+'>';
+    else s += '/>';
+    return s;
+  }
+  
+  var svg = '';
+  svg += '<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+(summaryY+totalH)+'" style="background:#fff;font-family:Microsoft YaHei,PingFang SC,sans-serif">';
+  
+  // Title
+  svg += svgTag('text', {x:String(W/2), y:String(titleY), 'text-anchor':'middle', 'font-size':'22', 'font-weight':'bold', fill:'#ec4899'}, '📋 服装档口 · 补货清单');
+  svg += svgTag('text', {x:String(W/2), y:String(titleY+22), 'text-anchor':'middle', 'font-size':'13', fill:'#999'}, '📅 '+today);
+  
+  // Table background
+  svg += svgTag('rect', {x:String(16), y:String(tableY), width:String(W-32), height:String(tableH), rx:'8', fill:'#fdf2f8'});
+  
+  // Header row
+  svg += svgTag('rect', {x:String(16), y:String(tableY), width:String(W-32), height:String(headerH), rx:'8', fill:'#fce7f3'});
+  svg += svgTag('rect', {x:String(16), y:String(tableY+headerH/2), width:String(W-32), height:String(headerH/2), fill:'#fce7f3'});
+  
+  for (var c = 0; c < 8; c++) {
+    var ax = colAlign[c] === 'center' ? 'middle' : (colAlign[c] === 'right' ? 'end' : 'start');
+    var tx = colAlign[c] === 'center' ? colX[c]+colW[c]/2 : (colAlign[c] === 'right' ? colX[c]+colW[c]-10 : colX[c]+10);
+    svg += svgTag('text', {x:String(tx), y:String(tableY+22), 'text-anchor':ax, 'font-size':'11', 'font-weight':'bold', fill:'#be185d'}, colNames[c]);
+  }
+  
+  // Data rows
+  for (var r = 0; r < rows.length; r++) {
+    var ry = tableY + headerH + r * rowH;
+    if (r % 2 === 1) {
+      svg += svgTag('rect', {x:String(16), y:String(ry), width:String(W-32), height:String(rowH), fill:'#fefce8'});
+    }
+    // Bottom border
+    svg += svgTag('line', {x1:String(20), y1:String(ry+rowH), x2:String(W-20), y2:String(ry+rowH), stroke:'#fef3c7', 'stroke-width':'0.5'});
+    
+    for (var c = 0; c < 8; c++) {
+      var ax = colAlign[c] === 'center' ? 'middle' : (colAlign[c] === 'right' ? 'end' : 'start');
+      var tx = colAlign[c] === 'center' ? colX[c]+colW[c]/2 : (colAlign[c] === 'right' ? colX[c]+colW[c]-8 : colX[c]+8);
+      var val = rows[r][c];
+      var color = c === 6 ? '#10b981' : '#444';
+      var fw = (c === 4 || c === 6) ? 'bold' : 'normal';
+      svg += svgTag('text', {x:String(tx), y:String(ry+21), 'text-anchor':ax, 'font-size':'12', 'font-weight':fw, fill:color}, val);
+    }
+  }
+  
+  // Summary box
+  var sby = tableY + tableH + 24;
+  svg += svgTag('rect', {x:String(16), y:String(sby), width:String(W-32), height:'100', rx:'12', fill:'#fdf2f8', stroke:'#fbcfe8', 'stroke-width':'2'});
+  svg += svgTag('text', {x:String(36), y:String(sby+32), 'font-size':'14', fill:'#666'}, '补货 SKU: '+selected.length+' 项');
+  svg += svgTag('text', {x:String(36), y:String(sby+58), 'font-size':'14', fill:'#666'}, '补货总成本:');
+  svg += svgTag('text', {x:String(200), y:String(sby+58), 'font-size':'22', 'font-weight':'bold', fill:'#ec4899'}, 'SGD $'+totalAmt.toFixed(2));
+  
+  svg += '</svg>';
+  
+  // Convert SVG to PNG via Canvas
+  var canvas = document.createElement('canvas');
+  canvas.width = W * 2;  // 2x for retina
+  canvas.height = (summaryY + totalH) * 2;
+  var ctx = canvas.getContext('2d');
+  ctx.scale(2, 2);
+  
+  var img = new Image();
+  var svgBlob = new Blob([svg], {type:'image/svg+xml;charset=utf-8'});
+  var url = URL.createObjectURL(svgBlob);
+  
+  img.onload = function() {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, W, summaryY + totalH);
+    ctx.drawImage(img, 0, 0);
+    URL.revokeObjectURL(url);
+    
+    canvas.toBlob(function(blob) {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = '补货清单_'+today.replace(/[年月]/g,'-').replace('日','')+'.png';
+      a.click();
+      showToast('图片已保存 💾');
+    }, 'image/png');
+  };
+  
+  img.onerror = function() {
+    showToast('生成失败，请尝试截图保存', true);
+  };
+  
+  img.src = url;
 }
 
 function toggleCategory(el, cat) {
