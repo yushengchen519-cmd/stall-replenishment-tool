@@ -976,16 +976,17 @@ function downloadImage() {
     
     canvas.toBlob(function(blob) {
       var file = new File([blob], '补货清单_'+today.replace(/[年月]/g,'-').replace('日','')+'.png', {type:'image/png'});
+      var isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
       
-      // Try Web Share API (iOS/Android share sheet → Save Image)
-      if (navigator.canShare && navigator.canShare({files: [file]})) {
+      if (isMobile && navigator.canShare && navigator.canShare({files: [file]})) {
+        // Mobile: share sheet (can save to gallery or share to WeChat etc.)
         navigator.share({files: [file], title: '补货清单'}).then(function() {
-          showToast('已保存 📱');
+          showToast('已分享 📱');
         }).catch(function() {
-          // Fallback: download
           downloadBlob(blob, today);
         });
       } else {
+        // Desktop: direct download
         downloadBlob(blob, today);
       }
     }, 'image/png');
