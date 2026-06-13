@@ -444,32 +444,35 @@ function render() {
     {h:'尺码',     a:1, m:0, d:0, r:function(it,ix){return it.size;}},
     {h:'颜色',     a:1, m:0, d:0, r:function(it,ix){return it.color;}},
     {h:'存放位置', a:0, m:1, d:1, r:function(it,ix){return it.location;}},
-    {h:'当前库存', a:1, m:0, d:0, r:function(it,ix){
+    {h:'当前库存', a:1, m:0, d:1, r:function(it,ix){
       var s = isDaily ? it.shelf : it.wh;
       var sf = isDaily ? it.shelf_safety : it.wh_safety;
       return '<span style="font-weight:bold;color:'+(s<=0?'#ef4444':s<sf?'#f59e0b':'#10b981')+'">'+s+'</span>';
     }},
-    {h:'安全库存', a:0, m:1, d:0, r:function(it,ix){return isDaily ? it.shelf_safety : it.wh_safety;}},
+    {h:'安全库存', a:0, m:1, d:1, r:function(it,ix){return isDaily ? it.shelf_safety : it.wh_safety;}},
     {h:'状态',     a:0, m:1, d:1, r:function(it,ix){
       var s = isDaily ? it.shelf : it.wh;
       var sf = isDaily ? it.shelf_safety : it.wh_safety;
       var st = s <= 0 ? '缺货' : (s < sf ? '不足' : '充足');
       return '<span class="badge badge-'+(st==='缺货'?'danger':st==='不足'?'warning':'success')+'">'+st+'</span>';
     }},
-    {h:'建议补货', a:0, m:1, d:0, r:function(it,ix){
+    {h:'建议补货', a:0, m:1, d:1, r:function(it,ix){
       var s = isDaily ? it.shelf : it.wh;
       var sf = isDaily ? it.shelf_safety : it.wh_safety;
       var sug = Math.max(0, sf - s);
       return sug > 0 ? '<span style="color:#f59e0b">'+sug+'</span>' : '-';
     }},
-    {h:'本次补货', a:1, m:0, d:0, r:function(it,ix){
+    {h:isDaily?'补货':'进货', a:1, m:0, d:0, r:function(it,ix){
       var sels = isDaily ? selections : whSelections;
       var s = isDaily ? it.shelf : it.wh;
       var sf = isDaily ? it.shelf_safety : it.wh_safety;
       var sug = Math.max(0, sf - s);
       var sel = sels[ix] !== undefined;
       var qty = sel ? sels[ix] : 0;
-      return '<input type="number" class="qty-input" value="'+qty+'" min="0" '+(sel||(s<sf)?'':'disabled')+' onchange="updateQty('+ix+',this.value)" onclick="event.stopPropagation()">';
+      // Daily: always enabled (user enters manually from shelf check)
+      // Warehouse: disabled unless selected or stock < safety
+      var disabled = isDaily ? '' : (sel||(s<sf)?'':'disabled');
+      return '<input type="number" class="qty-input" value="'+qty+'" min="0" '+disabled+' onchange="updateQty('+ix+',this.value)" onclick="event.stopPropagation()">';
     }},
     {h:'供应商',   a:0, m:1, d:1, r:function(it,ix){return suppliers[it.code]||'-';}},
     {h:'成本单价', a:0, m:1, d:1, r:function(it,ix){var c=costs[it.code]||0;return '$'+c.toFixed(2);}},
@@ -584,15 +587,17 @@ function updateStats() {
     return s < sf;
   }).length;
   
+  var isDaily = viewMode === 'daily';
   document.getElementById('statsBar').innerHTML = 
-    '<div class="stat-card danger"><div class="num">'+outOfStock+'</div><div class="label">缺货 SKU</div></div>'+
-    '<div class="stat-card warning"><div class="num">'+lowStock+'</div><div class="label">库存不足</div></div>'+
-    '<div class="stat-card success"><div class="num">'+adequate+'</div><div class="label">库存充足</div></div>'+
-    '<div class="stat-card info"><div class="num">'+needReplenish+'</div><div class="label">需补货合计</div></div>';
+    '<div class="stat-card danger"><div class="num">'+outOfStock+'</div><div class="label">缺货('+(isDaily?'货架':'仓库')+')</div></div>'+
+    '<div class="stat-card warning"><div class="num">'+lowStock+'</div><div class="label">库存不足('+(isDaily?'货架':'仓库')+')</div></div>'+
+    '<div class="stat-card success"><div class="num">'+adequate+'</div><div class="label">库存充足('+(isDaily?'货架':'仓库')+')</div></div>'+
+    '<div class="stat-card info"><div class="num">'+needReplenish+'</div><div class="label">需'+(isDaily?'补货':'进货')+'合计</div></div>';
   
   var selsActive = viewMode === 'daily' ? selections : whSelections;
   var selCount = Object.keys(selsActive).length;
-  document.getElementById('selectedCount').textContent = '已选补货: '+selCount+' 项';
+  var actionLabel = viewMode === 'daily' ? '已选补货' : '已选进货';
+  document.getElementById('selectedCount').textContent = actionLabel + ': '+selCount+' 项';
 }
 
 function updateSummary() {
@@ -607,7 +612,7 @@ function updateSummary() {
     return;
   }
   panel.classList.add('active');
-  var modeLabel = viewMode === 'daily' ? '📋 本次补货清单（货架 ← 仓库）' : '📋 本次进货清单（仓库 ← 供应商）';
+  var modeLabel = viewMode === 'daily' ? '📋 货架补货清单（从仓库调拨）' : '📋 仓库进货清单（供应商采购）';
   document.querySelector('#summaryPanel h3').textContent = modeLabel;
   
   var isDaily = viewMode === 'daily';
@@ -782,7 +787,7 @@ function generateList() {
   
   // Also update in-page summary
   updateSummary();
-  var modeLabel = isDaily ? '货架补货（从仓库调拨）' : '仓库进货（供应商采购）';
+  var modeLabel = isDaily ? '货架补货完成（仓库→货架）' : '仓库进货完成（供应商→仓库）';
   showToast(modeLabel + ' ✅ 库存已更新');
 }
 
@@ -996,11 +1001,11 @@ function updateThead() {
     {h:'尺码',     a:1, m:0, d:0},
     {h:'颜色',     a:1, m:0, d:0},
     {h:'存放位置', a:0, m:1, d:1},
-    {h:'当前库存', a:1, m:0, d:0},
-    {h:'安全库存', a:0, m:1, d:0},
+    {h:'当前库存', a:1, m:0, d:1},
+    {h:'安全库存', a:0, m:1, d:1},
     {h:'状态',     a:0, m:1, d:1},
-    {h:'建议补货', a:0, m:1, d:0},
-    {h:'本次补货', a:1, m:0, d:0},
+    {h:'建议补货', a:0, m:1, d:1},
+    {h:isDaily?'补货':'进货', a:1, m:0, d:0},
     {h:'供应商',   a:0, m:1, d:1},
     {h:'成本单价', a:0, m:1, d:1},
     {h:'小计(SGD)',a:0, m:1, d:1}
