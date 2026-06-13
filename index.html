@@ -119,11 +119,15 @@ tr.group-header td:hover { background: linear-gradient(90deg, #fbcfe8, #fde68a) 
   .controls label { font-size:11px; }
   .controls select { font-size:12px; padding:6px 10px; max-width:120px; }
   
-  /* Table - scrollable */
+  /* Table - scrollable on desktop, compact on mobile */
   .table-wrap { border-radius:14px; }
-  .table-wrap::after { display:block; }
+  .table-wrap::after { display:none; }
+  table { min-width:0; }
   th { padding:10px 6px; font-size:9px; }
   td { padding:9px 6px; font-size:12px; }
+  
+  /* Hide non-essential columns on mobile */
+  .mob-hide { display:none !important; }
   
   /* Touch-friendly checkboxes and inputs */
   .checkbox { width:24px; height:24px; }
@@ -203,19 +207,19 @@ tr.group-header td:hover { background: linear-gradient(90deg, #fbcfe8, #fde68a) 
         <tr>
           <th style="width:40px;">☑</th>
           <th>商品编号</th>
-          <th>品类</th>
-          <th>品牌</th>
+          <th class="mob-hide">品类</th>
+          <th class="mob-hide">品牌</th>
           <th>款式名称</th>
           <th>尺码</th>
           <th>颜色</th>
-          <th>存放位置</th>
+          <th class="mob-hide">存放位置</th>
           <th>当前库存</th>
           <th>安全库存</th>
           <th>状态</th>
           <th>建议补货</th>
           <th>本次补货</th>
-          <th>供应商</th>
-          <th>成本单价</th>
+          <th class="mob-hide">供应商</th>
+          <th class="mob-hide">成本单价</th>
           <th>小计(SGD)</th>
         </tr>
       </thead>
@@ -326,11 +330,13 @@ function render() {
   });
 
   var html = '';
+  var isMobile = window.innerWidth <= 768;
+  var colspan = isMobile ? 11 : 16;
   var catOrder = ['内衣','内裤','袜子','裤袜'];
   catOrder.forEach(function(cat) {
     if (!groups[cat]) return;
     var items = groups[cat];
-    html += '<tr class="group-header" onclick="toggleCategory(this,\''+cat+'\')"><td colspan="16">📂 '+cat+' ('+items.length+' SKU)</td></tr>';
+    html += '<tr class="group-header" onclick="toggleCategory(this,\''+cat+'\')"><td colspan="'+colspan+'">📂 '+cat+' ('+items.length+' SKU)</td></tr>';
     items.forEach(function(entry) {
       var item = entry.item;
       var idx = entry.origIdx;
@@ -343,19 +349,19 @@ function render() {
       html += '<tr class="sku-row cat-'+cat+' '+(selected?'selected':'')+'" data-idx="'+idx+'">';
       html += '<td><input type="checkbox" class="checkbox" '+(selected?'checked':'')+' onchange="toggleSelect('+idx+',this)" '+(!needsReplenish&&!showAll?'':'')+'></td>';
       html += '<td>'+item.code+'</td>';
-      html += '<td>'+item.category+'</td>';
-      html += '<td>'+item.brand+'</td>';
+      html += '<td class="mob-hide">'+item.category+'</td>';
+      html += '<td class="mob-hide">'+item.brand+'</td>';
       html += '<td>'+item.name+'</td>';
       html += '<td>'+item.size+'</td>';
       html += '<td>'+item.color+'</td>';
-      html += '<td>'+item.location+'</td>';
+      html += '<td class="mob-hide">'+item.location+'</td>';
       html += '<td style="font-weight:bold;color:'+(item.current_stock<=0?'#ef4444':item.current_stock<item.safety?'#f59e0b':'#10b981')+'">'+item.current_stock+'</td>';
       html += '<td>'+item.safety+'</td>';
       html += '<td><span class="badge badge-'+statusClass+'">'+item.status+'</span></td>';
       html += '<td style="color:#f59e0b">'+(item.suggested > 0 ? item.suggested : '-')+'</td>';
       html += '<td><input type="number" class="qty-input" value="'+qty+'" min="0" '+(selected?'':'disabled')+' onchange="updateQty('+idx+',this.value)" onclick="event.stopPropagation()"></td>';
-      html += '<td>'+ (suppliers[item.code] || '-') +'</td>';
-      html += '<td>$'+cost.toFixed(2)+'</td>';
+      html += '<td class="mob-hide">'+ (suppliers[item.code] || '-') +'</td>';
+      html += '<td class="mob-hide">$'+cost.toFixed(2)+'</td>';
       html += '<td style="color:#10b981;font-weight:bold">$'+subtotal+'</td>';
       html += '</tr>';
     });
@@ -731,6 +737,14 @@ document.addEventListener('keydown', function(e) {
   if (e.ctrlKey && e.key === 'a') { e.preventDefault(); selectAllNeeding(); }
   if (e.ctrlKey && e.key === 'g') { e.preventDefault(); generateList(); }
   if (e.ctrlKey && e.key === 'p') { e.preventDefault(); printList(); }
+});
+
+// Re-render on resize for mobile/desktop column switching
+var lastWidth = window.innerWidth;
+window.addEventListener('resize', function() {
+  var w = window.innerWidth;
+  if ((lastWidth <= 768) !== (w <= 768)) { lastWidth = w; render(); }
+  else { lastWidth = w; }
 });
 
 init();
