@@ -208,10 +208,6 @@ tr.group-header td:hover { background: linear-gradient(90deg, #fbcfe8, #fde68a) 
       <option value="out">仅缺货</option>
       <option value="low">仅不足</option>
     </select>
-    <span style="margin-left:12px;display:flex;align-items:center;gap:8px;background:white;border-radius:25px;padding:3px;border:2px solid #fce7f3;">
-      <button id="btnDaily" class="mode-btn active" onclick="switchMode('daily')">🏪 日常余量</button>
-      <button id="btnWarehouse" class="mode-btn" onclick="switchMode('warehouse')">🏭 仓库库存</button>
-    </span>
     <span style="color:#888;font-size:13px;margin-left:auto;" id="selectedCount"></span>
   </div>
 
@@ -367,7 +363,6 @@ function resetData() {
     item.shelf_safety = item.safety;
     item.wh_safety = Math.round(item.safety * 1.5);
   });
-  selections = {};
   whSelections = {};
   render();
   showToast('数据已重置 🔄');
@@ -399,8 +394,7 @@ var costs = {
 };
 
 var showAll = false;
-var viewMode = 'warehouse'; // 'daily' | 'warehouse'
-var selections = {};    // daily replenishment {index: qty}
+var viewMode = 'warehouse'; // locked: warehouse only
 var whSelections = {};  // warehouse replenishment {index: qty}
 
 // ===== INIT =====
@@ -708,8 +702,7 @@ function selectAllNeeding() {
 }
 
 function clearAll() {
-  if (viewMode === 'daily') selections = {};
-  else whSelections = {};
+  whSelections = {};
   render();
 }
 
@@ -1050,15 +1043,6 @@ function showToast(msg, isError) {
   t.textContent = msg;
   t.className = 'toast '+(isError?'error':'')+' show';
   setTimeout(function(){ t.className = 'toast'; }, 2000);
-}
-
-function switchMode(mode) {
-  viewMode = mode;
-  document.getElementById('btnDaily').className = mode === 'daily' ? 'mode-btn active' : 'mode-btn';
-  document.getElementById('btnWarehouse').className = mode === 'warehouse' ? 'mode-btn active' : 'mode-btn';
-  // Clear selections when switching modes
-  updateThead();
-  render();
 }
 
 function updateThead() {
