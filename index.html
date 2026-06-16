@@ -254,7 +254,10 @@ tr.group-header td:hover { background: linear-gradient(90deg, #fbcfe8, #fde68a) 
   <div class="toast" id="toast"></div>
   </div>
 
-  <script src="inventory_sync.js?v=2"></script>
+  <script>
+    // Dynamic cache-busting: ensures fresh inventory_sync.js on every page load
+    document.write('<script src="inventory_sync.js?ts=' + Date.now() + '"><\/script>');
+  </script>
   <script>
   // ===== EMBEDDED DATA =====
   var inventory = [
