@@ -252,11 +252,12 @@ tr.group-header td:hover { background: linear-gradient(90deg, #fbcfe8, #fde68a) 
   </div>
 
   <div class="toast" id="toast"></div>
-</div>
+  </div>
 
-<script>
-// ===== EMBEDDED DATA =====
-var inventory = [
+  <script src="inventory_sync.js"></script>
+  <script>
+  // ===== EMBEDDED DATA =====
+  var inventory = [
   {"code":"BR-001","category":"内衣","brand":"Triumph","name":"无钢圈舒适文胸","size":"34B","color":"黑色","location":"A架-1层","total_in":10,"sold":3,"current_stock":7,"safety":5,"suggested":0,"status":"充足"},
   {"code":"BR-001","category":"内衣","brand":"Triumph","name":"无钢圈舒适文胸","size":"36B","color":"肤色","location":"","total_in":0,"sold":0,"current_stock":0,"safety":5,"suggested":10,"status":"缺货"},
   {"code":"BR-001","category":"内衣","brand":"Triumph","name":"无钢圈舒适文胸","size":"34C","color":"黑色","location":"","total_in":0,"sold":0,"current_stock":0,"safety":5,"suggested":10,"status":"缺货"},
@@ -297,6 +298,33 @@ inventory.forEach(function(item) {
   item.wh_safety = Math.round(item.safety * 1.5);
 });
 
+// ===== SYNC: apply CLI-updated data from inventory_sync.js =====
+function applySyncData(syncData) {
+  if (!syncData || !syncData.length) return false;
+  var updated = 0;
+  syncData.forEach(function(s) {
+    for (var i = 0; i < inventory.length; i++) {
+      if (inventory[i].code === s.code && inventory[i].size === s.size && inventory[i].color === s.color) {
+        inventory[i].wh = s.wh;
+        inventory[i].wh_safety = s.wh_safety;
+        inventory[i].shelf = 0;
+        inventory[i].shelf_safety = 0;
+        updated++;
+        break;
+      }
+    }
+  });
+  if (updated > 0) {
+    saveData();
+    console.log('SYNC: applied ' + updated + ' items from inventory_sync.js');
+  }
+  return updated > 0;
+}
+
+// Run sync if SYNC_DATA is available (loaded from inventory_sync.js)
+if (typeof SYNC_DATA !== 'undefined' && SYNC_DATA.length > 0) {
+  applySyncData(SYNC_DATA);
+}
 
 
 // ===== DATA PERSISTENCE (localStorage) =====
