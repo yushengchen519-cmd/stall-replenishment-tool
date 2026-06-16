@@ -323,12 +323,6 @@ function applySyncData(syncData) {
   return updated > 0;
 }
 
-// Run sync if SYNC_DATA is available (loaded from inventory_sync.js)
-if (typeof SYNC_DATA !== 'undefined' && SYNC_DATA.length > 0) {
-  applySyncData(SYNC_DATA);
-}
-
-
 // ===== DATA PERSISTENCE (localStorage) =====
 var STORAGE_KEY = 'stall_inventory_v1';
 
@@ -444,6 +438,10 @@ function init() {
   names.forEach(n => { var o=document.createElement('option'); o.value=n; o.textContent=n; selName.appendChild(o); });
   updateThead();
   var hasData = loadData();
+  // SYNC_DATA always wins over localStorage (embedded by CLI on each update)
+  if (typeof SYNC_DATA !== 'undefined' && SYNC_DATA.length > 0) {
+    applySyncData(SYNC_DATA);
+  }
   if (!hasData) { saveData(); }
   render();
 }
