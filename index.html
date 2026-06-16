@@ -230,7 +230,6 @@ tr.group-header td:hover { background: linear-gradient(90deg, #fbcfe8, #fde68a) 
           <th>本次补货</th>
           <th class="mob-hide">供应商</th>
           <th class="mob-hide">成本单价</th>
-          <th class="mob-hide">小计(SGD)</th>
         </tr>
       </thead>
       <tbody id="skuBody"></tbody>
@@ -417,12 +416,7 @@ function render() {
       return '<input type="number" class="qty-input" value="'+qty+'" min="0" '+disabled+' oninput="updateQty('+ix+',this.value,this)" onclick="event.stopPropagation()">';
     }},
     {h:'供应商',   a:0, m:1, d:1, r:function(it,ix){return suppliers[it.code]||'-';}},
-    {h:'成本单价', a:0, m:1, d:1, r:function(it,ix){var c=costs[it.code]||0;return '$'+c.toFixed(2);}},
-    {h:'小计(SGD)',a:0, m:1, d:1, r:function(it,ix){
-      var sels = isDaily ? selections : whSelections;
-      var qty = sels[ix] || 0;
-      return '<span style="color:#10b981;font-weight:bold">$'+(qty*(costs[it.code]||0)).toFixed(2)+'</span>';
-    }}
+    {h:'成本单价', a:0, m:1, d:1, r:function(it,ix){var c=costs[it.code]||0;return '$'+c.toFixed(2);}}
   ];
   
   // Filter visible: daily-hide columns are hidden regardless of other flags
@@ -502,13 +496,6 @@ function updateQty(idx, val, inputEl) {
     sels[idx] = qty;
   }
   updateSummary();
-  var cost = costs[inventory[idx].code] || 0;
-  var subtotal = (qty * cost).toFixed(2);
-  var row = document.querySelector('tr[data-idx="'+idx+'"]');
-  if (row) {
-    var subCell = row.querySelector('.subtotal-val');
-    if (subCell) subCell.textContent = '$'+subtotal;
-  }
 }
 
 function updateStats() {
