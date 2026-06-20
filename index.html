@@ -304,8 +304,7 @@ tr.group-header td:hover { background: linear-gradient(90deg, #fbcfe8, #fde68a) 
           <th style="width:40px;">☑</th>
           <th>商品编号</th>
           <th class="mob-hide">品类</th>
-          <th class="mob-hide">品牌</th>
-          <th>款式名称</th>
+                    <th>款式名称</th>
           <th>尺码</th>
           <th>颜色</th>
           <th class="mob-hide">存放位置</th>
@@ -473,8 +472,7 @@ function render() {
     {h:'☑',        a:1, m:0, d:0, r:function(it,ix){return '<input type="checkbox" class="checkbox" '+(isSelected(ix)?'checked':'')+' onchange="toggleSelect('+ix+',this)">';}},
     {h:'商品编号', a:1, m:0, d:0, r:function(it,ix){return it.code;}},
     {h:'品类',     a:0, m:1, d:1, r:function(it,ix){return it.category;}},
-    {h:'品牌',     a:0, m:1, d:1, r:function(it,ix){return it.brand;}},
-    {h:'款式名称', a:1, m:0, d:0, r:function(it,ix){return it.name;}},
+        {h:'款式名称', a:1, m:0, d:0, r:function(it,ix){return it.name;}},
     {h:'尺码',     a:1, m:0, d:0, r:function(it,ix){return it.size;}},
     {h:'颜色',     a:1, m:0, d:0, r:function(it,ix){return it.color;}},
     {h:'存放位置', a:0, m:1, d:1, r:function(it,ix){return it.location;}},
@@ -509,7 +507,7 @@ function render() {
       return '<input type="number" class="qty-input" value="'+qty+'" min="0" '+disabled+' oninput="updateQty('+ix+',this.value,this)" onclick="event.stopPropagation()">';
     }},
     {h:'供应商',   a:0, m:1, d:1, r:function(it,ix){return suppliers[it.code]||'-';}},
-    {h:'成本单价', a:0, m:1, d:1, r:function(it,ix){var c=costs[it.code]||0;return '$'+c.toFixed(2);}}
+    {h:'成本单价', a:0, m:1, d:1, r:function(it,ix){var c=costs[it.code]||0;return '¥'+c.toFixed(2);}}
   ];
   
   // Filter visible: daily-hide columns are hidden regardless of other flags
@@ -670,10 +668,10 @@ function updateSummary() {
       var amt = qty * cost;
       totalItems += qty;
       totalAmt += amt;
-      html += '<tr><td>'+item.code+'</td><td>'+item.name+'</td><td>'+item.size+'</td><td>'+item.color+'</td><td>'+qty+'</td><td>$'+cost.toFixed(2)+'</td><td style="color:#10b981;font-weight:bold">$'+amt.toFixed(2)+'</td><td>'+(suppliers[item.code]||'-')+'</td></tr>';
+      html += '<tr><td>'+item.code+'</td><td>'+item.name+'</td><td>'+item.size+'</td><td>'+item.color+'</td><td>'+qty+'</td><td>¥'+cost.toFixed(2)+'</td><td style="color:#10b981;font-weight:bold">¥'+amt.toFixed(2)+'</td><td>'+(suppliers[item.code]||'-')+'</td></tr>';
     });
     tbody.innerHTML = html;
-    totalEl.innerHTML = '🏭 仓库进货（供应商采购） — 总件数: <span style="font-size:22px;">'+totalItems+' 件</span>，总金额: <span style="font-size:22px;color:#ec4899;">SGD $'+totalAmt.toFixed(2)+'</span> （'+selected.length+' 项）';
+    totalEl.innerHTML = '🏭 仓库进货（供应商采购） — 总件数: <span style="font-size:22px;">'+totalItems+' 件</span>，总金额: <span style="font-size:22px;color:#ec4899;">¥'+totalAmt.toFixed(2)+'</span> （'+selected.length+' 项）';
   }
 }
 
@@ -808,7 +806,7 @@ function generateList() {
     });
     
     printHTML += '</tbody></table>';
-    printHTML += '<div class="group-total">小计: SGD $'+groupTotal.toFixed(2)+'</div>';
+    printHTML += '<div class="group-total">小计: ¥'+groupTotal.toFixed(2)+'</div>';
     printHTML += '</div>';
     
     totalCost += groupTotal;
@@ -818,7 +816,7 @@ function generateList() {
   printHTML += '<div class="summary-box">';
   printHTML += '<div class="row"><span>补货 SKU 数</span><span>'+selected.length+' 项</span></div>';
   printHTML += '<div class="row"><span>补货总件数</span><span>'+totalItems+' 件</span></div>';
-  printHTML += '<div class="row total"><span>💰 补货总成本</span><span>SGD $'+totalCost.toFixed(2)+'</span></div>';
+  printHTML += '<div class="row total"><span>💰 补货总成本</span><span>¥'+totalCost.toFixed(2)+'</span></div>';
   printHTML += '</div>';
   
   printHTML += '<div class="footer">服装档口管理模板 · 补货工具生成</div>';
@@ -1057,8 +1055,7 @@ function updateThead() {
     {h:'☑',        a:1, m:0, d:0},
     {h:'商品编号', a:1, m:0, d:0},
     {h:'品类',     a:0, m:1, d:1},
-    {h:'品牌',     a:0, m:1, d:1},
-    {h:'款式名称', a:1, m:0, d:0},
+        {h:'款式名称', a:1, m:0, d:0},
     {h:'尺码',     a:1, m:0, d:0},
     {h:'颜色',     a:1, m:0, d:0},
     {h:'存放位置', a:0, m:1, d:1},
@@ -1138,33 +1135,25 @@ function stockCellClass(wh, safety) {
 
 function updateMatrixQty(idx, val, inputEl) {
   var qty = parseInt(val) || 0;
-  var item = inventory[idx];
   if (qty <= 0) {
     delete whSelections[idx];
   } else {
     whSelections[idx] = qty;
   }
-  // Update the cell display to show selected qty
-  if (inputEl) {
-    updateMatrixCellDisplay(idx, qty);
+  // Update all input cells for this SKU to reflect the same value
+  var cells = document.querySelectorAll('.matrix-qty-input[data-idx="' + idx + '"]');
+  for (var c = 0; c < cells.length; c++) {
+    cells[c].value = qty;
+    if (qty > 0) {
+      cells[c].style.borderColor = '#ec4899';
+      cells[c].style.background = '#fdf2f8';
+    } else {
+      cells[c].style.borderColor = '#fbcfe8';
+      cells[c].style.background = 'white';
+    }
   }
   updateSummary();
   updateStats();
-}
-
-function updateMatrixCellDisplay(idx, qty) {
-  // Update all matrix cells that show this SKU's qty input
-  var cells = document.querySelectorAll('.matrix-qty[data-idx=\"' + idx + '\"]');
-  cells.forEach(function(cell) {
-    cell.value = qty;
-    if (qty > 0) {
-      cell.style.borderColor = '#ec4899';
-      cell.style.background = '#fdf2f8';
-    } else {
-      cell.style.borderColor = '#fbcfe8';
-      cell.style.background = 'white';
-    }
-  });
 }
 
 function renderMatrix() {
@@ -1196,42 +1185,33 @@ function renderMatrix() {
     html += '<div class=\"name\">' + p.name + '</div>';
     html += '<div class=\"meta\">';
     html += '<span>📍 ' + (p.location || '未设') + '</span>';
-    html += '<span>💰 $' + p.cost.toFixed(2) + '</span>';
+    html += '<span>💰 ¥' + p.cost.toFixed(2) + '</span>';
     if (lowCount > 0) html += '<span style=\"color:#dc2626;background:#fee2e2\">⚠️ ' + lowCount + '项低于安全线</span>';
     html += '</div></div>';
 
     html += '<table class=\"matrix-table\">';
     html += '<tr><th>尺码</th>';
     p.colors.forEach(function(color) { html += '<th>' + color + '</th>'; });
-    html += '<th style=\"font-size:10px;color:#999\">进货</th></tr>';
 
     p.sizesOrder.forEach(function(size) {
       html += '<tr><td>' + size + '</td>';
-      var rowIdx = -1;
       p.colors.forEach(function(color) {
         var sku = p.sizes[size][color];
         if (sku) {
           var cls = stockCellClass(sku.wh, sku.wh_safety);
           var idx = inventory.indexOf(sku);
+          var selQty_i = whSelections[idx] || 0;
           html += '<td class=\"' + cls + '\"><div class=\"stock-cell\">';
           html += '<span class=\"big\">' + sku.wh + '</span>';
           html += '<span class=\"small\">/' + sku.wh_safety + '</span>';
+          html += '<input type=\"number\" class=\"matrix-qty-input\" data-idx=\"' + idx + '\" value=\"' + selQty_i + '\" min=\"0\" ';
+          html += 'oninput=\"updateMatrixQty(' + idx + ',this.value,this)\" onclick=\"event.stopPropagation()\" ';
+          html += 'placeholder=\"进\" style=\"margin-top:2px;width:44px;font-size:12px;' + (selQty_i > 0 ? 'border-color:#ec4899;background:#fdf2f8;color:#333' : 'color:#333') + '\">';
           html += '</div></td>';
-          // Use first color's idx as row anchor
-          if (rowIdx === -1) rowIdx = idx;
         } else {
           html += '<td class=\"stock-empty\"><div class=\"stock-cell\"><span class=\"big\">-</span></div></td>';
         }
       });
-      // Qty input column (shared for the row = all colors of this size)
-      if (rowIdx >= 0) {
-        var selQty = whSelections[rowIdx] || 0;
-        html += '<td><input type=\"number\" class=\"matrix-qty-input matrix-qty\" data-idx=\"' + rowIdx + '\" value=\"' + selQty + '\" min=\"0\" ' +
-          'oninput=\"updateMatrixQty(' + rowIdx + ',this.value,this)\" onclick=\"event.stopPropagation()\" ' +
-          'style=\"' + (selQty > 0 ? 'border-color:#ec4899;background:#fdf2f8' : '') + '\"></td>';
-      } else {
-        html += '<td></td>';
-      }
       html += '</tr>';
     });
     html += '</table>';
