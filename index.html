@@ -164,6 +164,86 @@ tr.group-header td:hover { background: linear-gradient(90deg, #fbcfe8, #fde68a) 
   .controls { flex-direction:column; gap:6px; }
   .controls select { max-width:100%; width:100%; }
 }
+
+/* ====== Matrix View ====== */
+.view-toggle { display:flex; gap:4px; background:rgba(255,255,255,0.15); border-radius:10px; padding:3px; }
+.view-tab { padding:8px 16px; border:none; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; background:transparent; color:white; opacity:0.7; transition:all .2s; }
+.view-tab.active { background:white; color:#ec4899; opacity:1; box-shadow:0 2px 6px rgba(0,0,0,0.12); }
+
+#matrix-view {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.product-card {
+  background: white;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  transition: transform .15s;
+  border: 1px solid #fce7f3;
+}
+.product-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(236,72,153,0.12);
+}
+
+.card-head {
+  padding: 12px 16px;
+  border-bottom: 1px solid #fce7f3;
+  background: linear-gradient(135deg, #fdf2f8, #fff);
+}
+.card-head .brand { font-size: 12px; color: #ec4899; font-weight: 600; }
+.card-head .name { font-size: 17px; font-weight: 700; color: #333; margin-top: 3px; }
+.card-head .meta { font-size: 11px; color: #aaa; margin-top: 4px; display: flex; gap: 8px; flex-wrap: wrap; }
+.card-head .meta span { background: #fff0f5; padding: 2px 8px; border-radius: 10px; font-size: 10px; }
+
+.matrix-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.matrix-table th {
+  background: #fff0f5; padding: 7px 5px; color: #be185d;
+  font-weight: 600; font-size: 11px; text-align: center;
+  border-bottom: 2px solid #f9a8d4;
+}
+.matrix-table th:first-child { text-align: left; padding-left: 12px; color: #999; font-weight: 500; }
+.matrix-table td { padding: 7px 5px; text-align: center; border-bottom: 1px solid #fef3c7; font-weight: 600; }
+.matrix-table td:first-child { text-align: left; padding-left: 12px; color: #999; font-weight: 500; font-size: 11px; }
+.matrix-table tr:last-child td { border-bottom: none; }
+
+.stock-danger  { background: #fff0f0; color: #dc2626; }
+.stock-warn    { background: #fffef5; color: #d97706; }
+.stock-ok      { background: #f0fdf4; color: #059669; }
+.stock-empty   { background: #fafafa; color: #ccc; }
+
+.stock-cell { display: flex; flex-direction: column; align-items: center; line-height: 1.3; }
+.stock-cell .big { font-size: 16px; }
+.stock-cell .small { font-size: 9px; opacity: 0.6; }
+
+.matrix-qty-input {
+  width: 50px; text-align: center; background: white;
+  border: 2px solid #fbcfe8; color: #444; padding: 4px;
+  border-radius: 14px; font-size: 13px; font-weight: 700;
+}
+.matrix-qty-input:focus { border-color: #ec4899; outline: none; box-shadow: 0 0 0 3px rgba(236,72,153,0.1); }
+.matrix-qty-input:disabled { opacity: 0.3; background: #f9fafb; }
+
+.card-foot {
+  padding: 10px 16px; background: #fefefe;
+  border-top: 1px solid #fce7f3;
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 11px;
+}
+.card-foot .total { font-weight: 600; color: #ec4899; font-size: 13px; }
+.card-foot .code { color: #bbb; font-size: 10px; }
+.card-foot .btn-sm { padding: 4px 12px; font-size: 10px; }
+
+@media (max-width: 768px) {
+  #matrix-view { grid-template-columns: 1fr; }
+  .matrix-table th, .matrix-table td { padding: 5px 3px; font-size: 10px; }
+  .stock-cell .big { font-size: 14px; }
+}
+
 </style>
 </head>
 <body>
@@ -174,6 +254,10 @@ tr.group-header td:hover { background: linear-gradient(90deg, #fbcfe8, #fde68a) 
       <div class="date" id="todayDate"></div>
     </div>
     <div class="header-right">
+      <div class="view-toggle">
+        <button class="view-tab active" id="tabMatrix" onclick="switchView('matrix')">🧩 矩阵</button>
+        <button class="view-tab" id="tabList" onclick="switchView('list')">📋 列表</button>
+      </div>
       <button class="btn btn-outline btn-sm" onclick="toggleAllItems()">📋 切换全部SKU</button>
       <button class="btn btn-outline btn-sm" onclick="selectAllNeeding()">✅ 全选待补货</button>
       <button class="btn btn-outline btn-sm" onclick="clearAll()">🔄 清空选择</button>
@@ -210,6 +294,8 @@ tr.group-header td:hover { background: linear-gradient(90deg, #fbcfe8, #fde68a) 
     <span style="color:#888;font-size:13px;margin-left:auto;" id="selectedCount"></span>
   </div>
 
+  <!-- 列表视图 -->
+  <div id="list-view">
   <!-- SKU列表 -->
   <div class="table-wrap">
     <table id="skuTable">
@@ -235,6 +321,10 @@ tr.group-header td:hover { background: linear-gradient(90deg, #fbcfe8, #fde68a) 
       <tbody id="skuBody"></tbody>
     </table>
   </div>
+  </div>
+
+  <!-- 矩阵视图 -->
+  <div id="matrix-view" style="display:none;"></div>
 
   <!-- 补货汇总 -->
   <div class="summary no-print" id="summaryPanel">
@@ -337,6 +427,9 @@ function init() {
   names.forEach(n => { var o=document.createElement('option'); o.value=n; o.textContent=n; selName.appendChild(o); });
   updateThead();
   render();
+  renderMatrix();
+  // Default to matrix view
+  switchView('matrix');
 }
 
 function getFilteredData() {
@@ -608,11 +701,13 @@ function selectAllNeeding() {
     }
   });
   render();
+  if (currentView === 'matrix') renderMatrix();
 }
 
 function clearAll() {
   whSelections = {};
   render();
+  if (currentView === 'matrix') renderMatrix();
 }
 
 function generateList() {
@@ -738,6 +833,8 @@ function generateList() {
   updateSummary();
   var modeLabel = isDaily ? '摊位补货完成（仓库→摊位）' : '仓库进货完成（供应商→仓库）';
   showToast(modeLabel + ' ✅ 库存已更新');
+  // Refresh matrix view if active
+  if (currentView === 'matrix') renderMatrix();
 }
 
 function printList() {
@@ -984,6 +1081,195 @@ function updateThead() {
     h += '<th'+(i===0?' style="width:40px;"':'')+'>'+vis[i].h+'</th>';
   }
   document.querySelector('#skuTable thead tr').innerHTML = h;
+}
+
+// ===== Matrix View =====
+var currentView = 'matrix'; // 'matrix' or 'list'
+
+function groupProducts() {
+  var map = {};
+  inventory.forEach(function(sku) {
+    var key = sku.code;
+    if (!map[key]) {
+      map[key] = {
+        code: sku.code, brand: sku.brand, name: sku.name,
+        category: sku.category, location: sku.location || '', cost: sku.cost,
+        sizes: {}, colors: [], sizesOrder: []
+      };
+    }
+    if (!map[key].sizes[sku.size]) {
+      map[key].sizes[sku.size] = {};
+      map[key].sizesOrder.push(sku.size);
+    }
+    map[key].sizes[sku.size][sku.color] = sku;
+    if (sku.location && !map[key].location) map[key].location = sku.location;
+    if (map[key].colors.indexOf(sku.color) === -1) map[key].colors.push(sku.color);
+  });
+
+  var catOrder = ['内衣','内裤','袜子','裤袜'];
+  var colorOrder = ['白','粉','肉','黑','灰色','蓝色','黑色','肤色','深灰','花色','白色'];
+  var sizeOrder = ['M','L','XL','2XL','3XL','34B','34C','36B','36C','M-L','L-LL','均码'];
+
+  var products = Object.values(map);
+  products.sort(function(a,b) {
+    var ca = catOrder.indexOf(a.category), cb = catOrder.indexOf(b.category);
+    if (ca !== cb) return ca - cb;
+    return a.code.localeCompare(b.code);
+  });
+  products.forEach(function(p) {
+    p.colors.sort(function(a,b) {
+      var ia = colorOrder.indexOf(a), ib = colorOrder.indexOf(b);
+      return (ia===-1?99:ia) - (ib===-1?99:ib);
+    });
+    p.sizesOrder.sort(function(a,b) {
+      var ia = sizeOrder.indexOf(a), ib = sizeOrder.indexOf(b);
+      return (ia===-1?99:ia) - (ib===-1?99:ib);
+    });
+  });
+  return products;
+}
+
+function stockCellClass(wh, safety) {
+  if (wh === 0) return 'stock-empty';
+  if (wh < safety) return 'stock-danger';
+  if (wh === safety) return 'stock-warn';
+  return 'stock-ok';
+}
+
+function updateMatrixQty(idx, val, inputEl) {
+  var qty = parseInt(val) || 0;
+  var item = inventory[idx];
+  if (qty <= 0) {
+    delete whSelections[idx];
+  } else {
+    whSelections[idx] = qty;
+  }
+  // Update the cell display to show selected qty
+  if (inputEl) {
+    updateMatrixCellDisplay(idx, qty);
+  }
+  updateSummary();
+  updateStats();
+}
+
+function updateMatrixCellDisplay(idx, qty) {
+  // Update all matrix cells that show this SKU's qty input
+  var cells = document.querySelectorAll('.matrix-qty[data-idx=\"' + idx + '\"]');
+  cells.forEach(function(cell) {
+    cell.value = qty;
+    if (qty > 0) {
+      cell.style.borderColor = '#ec4899';
+      cell.style.background = '#fdf2f8';
+    } else {
+      cell.style.borderColor = '#fbcfe8';
+      cell.style.background = 'white';
+    }
+  });
+}
+
+function renderMatrix() {
+  var products = groupProducts();
+  var container = document.getElementById('matrix-view');
+  if (!container) return;
+  var html = '';
+
+  var currentCat = '';
+  products.forEach(function(p) {
+    if (p.category !== currentCat) {
+      currentCat = p.category;
+      html += '<div style=\"grid-column:1/-1;margin:12px 0 4px;padding-left:4px;\">' +
+        '<span style=\"font-size:18px;font-weight:700;color:#ec4899;background:linear-gradient(90deg,#fdf2f8,transparent);padding:4px 12px;border-left:4px solid #f9a8d4;border-radius:0 8px 8px 0;\">' +
+        p.category + '</span></div>';
+    }
+
+    var totalWh = 0, lowCount = 0;
+    p.sizesOrder.forEach(function(size) {
+      p.colors.forEach(function(color) {
+        var sku = p.sizes[size][color];
+        if (sku) { totalWh += sku.wh; if (sku.wh < sku.wh_safety) lowCount++; }
+      });
+    });
+
+    html += '<div class=\"product-card\">';
+    html += '<div class=\"card-head\">';
+    html += '<div class=\"brand\">' + p.brand + ' <span style=\"color:#ccc;font-weight:400\">' + p.code + '</span></div>';
+    html += '<div class=\"name\">' + p.name + '</div>';
+    html += '<div class=\"meta\">';
+    html += '<span>📍 ' + (p.location || '未设') + '</span>';
+    html += '<span>💰 $' + p.cost.toFixed(2) + '</span>';
+    if (lowCount > 0) html += '<span style=\"color:#dc2626;background:#fee2e2\">⚠️ ' + lowCount + '项低于安全线</span>';
+    html += '</div></div>';
+
+    html += '<table class=\"matrix-table\">';
+    html += '<tr><th>尺码</th>';
+    p.colors.forEach(function(color) { html += '<th>' + color + '</th>'; });
+    html += '<th style=\"font-size:10px;color:#999\">进货</th></tr>';
+
+    p.sizesOrder.forEach(function(size) {
+      html += '<tr><td>' + size + '</td>';
+      var rowIdx = -1;
+      p.colors.forEach(function(color) {
+        var sku = p.sizes[size][color];
+        if (sku) {
+          var cls = stockCellClass(sku.wh, sku.wh_safety);
+          var idx = inventory.indexOf(sku);
+          html += '<td class=\"' + cls + '\"><div class=\"stock-cell\">';
+          html += '<span class=\"big\">' + sku.wh + '</span>';
+          html += '<span class=\"small\">/' + sku.wh_safety + '</span>';
+          html += '</div></td>';
+          // Use first color's idx as row anchor
+          if (rowIdx === -1) rowIdx = idx;
+        } else {
+          html += '<td class=\"stock-empty\"><div class=\"stock-cell\"><span class=\"big\">-</span></div></td>';
+        }
+      });
+      // Qty input column (shared for the row = all colors of this size)
+      if (rowIdx >= 0) {
+        var selQty = whSelections[rowIdx] || 0;
+        html += '<td><input type=\"number\" class=\"matrix-qty-input matrix-qty\" data-idx=\"' + rowIdx + '\" value=\"' + selQty + '\" min=\"0\" ' +
+          'oninput=\"updateMatrixQty(' + rowIdx + ',this.value,this)\" onclick=\"event.stopPropagation()\" ' +
+          'style=\"' + (selQty > 0 ? 'border-color:#ec4899;background:#fdf2f8' : '') + '\"></td>';
+      } else {
+        html += '<td></td>';
+      }
+      html += '</tr>';
+    });
+    html += '</table>';
+
+    html += '<div class=\"card-foot\">';
+    html += '<span class=\"code\">共 <b>' + totalWh + '</b> 件</span>';
+    html += '<button class=\"btn btn-primary btn-sm\" onclick=\"matrixSelectAll(\\'' + p.code + '\\')\">✅ 全选待补货</button>';
+    html += '</div></div>';
+  });
+
+  container.innerHTML = html;
+}
+
+function matrixSelectAll(code) {
+  inventory.forEach(function(item, idx) {
+    if (item.code === code && item.wh < item.wh_safety) {
+      var sug = Math.max(0, item.wh_safety - item.wh);
+      whSelections[idx] = sug > 0 ? sug : 0;
+    }
+  });
+  renderMatrix();
+  updateSummary();
+  updateStats();
+}
+
+function switchView(view) {
+  currentView = view;
+  var tabM = document.getElementById('tabMatrix');
+  var tabL = document.getElementById('tabList');
+  if (tabM) tabM.className = 'view-tab' + (view === 'matrix' ? ' active' : '');
+  if (tabL) tabL.className = 'view-tab' + (view === 'list' ? ' active' : '');
+  document.getElementById('list-view').style.display = view === 'list' ? '' : 'none';
+  document.getElementById('matrix-view').style.display = view === 'matrix' ? '' : 'none';
+  if (view === 'list') {
+    render();
+  } else {
+    renderMatrix();
+  }
 }
 
 // Keyboard shortcuts
