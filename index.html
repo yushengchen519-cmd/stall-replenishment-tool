@@ -221,9 +221,9 @@ tr.group-header td:hover { background: linear-gradient(90deg, #fbcfe8, #fde68a) 
 .stock-cell .small { font-size: 9px; opacity: 0.6; }
 
 .matrix-qty-input {
-  width: 50px; text-align: center; background: white;
-  border: 2px solid #fbcfe8; color: #444; padding: 4px;
-  border-radius: 14px; font-size: 13px; font-weight: 700;
+  width: 58px; text-align: center; background: white;
+  border: 2px solid #fbcfe8; color: #333; padding: 4px 2px;
+  border-radius: 14px; font-size: 14px; font-weight: 700;
 }
 .matrix-qty-input:focus { border-color: #ec4899; outline: none; box-shadow: 0 0 0 3px rgba(236,72,153,0.1); }
 .matrix-qty-input:disabled { opacity: 0.3; background: #f9fafb; }
@@ -1206,7 +1206,7 @@ function renderMatrix() {
           html += '<span class=\"small\">/' + sku.wh_safety + '</span>';
           html += '<input type=\"number\" class=\"matrix-qty-input\" data-idx=\"' + idx + '\" value=\"' + selQty_i + '\" min=\"0\" ';
           html += 'oninput=\"updateMatrixQty(' + idx + ',this.value,this)\" onclick=\"event.stopPropagation()\" ';
-          html += 'placeholder=\"进\" style=\"margin-top:2px;width:44px;font-size:12px;' + (selQty_i > 0 ? 'border-color:#ec4899;background:#fdf2f8;color:#333' : 'color:#333') + '\">';
+          html += 'placeholder="进" style="margin-top:2px;' + (selQty_i > 0 ? 'border-color:#ec4899;background:#fdf2f8' : '') + '">';
           html += '</div></td>';
         } else {
           html += '<td class=\"stock-empty\"><div class=\"stock-cell\"><span class=\"big\">-</span></div></td>';
