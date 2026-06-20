@@ -1093,7 +1093,7 @@ function groupProducts() {
     if (!map[key]) {
       map[key] = {
         code: sku.code, brand: sku.brand, name: sku.name,
-        category: sku.category, location: sku.location || '', cost: sku.cost,
+        category: sku.category, location: sku.location || '', cost: costs[sku.code] || 0,
         sizes: {}, colors: [], sizesOrder: []
       };
     }
